@@ -49,12 +49,14 @@ The current prototype lives in:
 /Users/morgandam/Documents/repos/DeadPad
 ```
 
-It provides a small command-line utility named `deadpad`.
+It provides a small Swift command-line utility named `deadpad`.
+`src/DeadPadCoreTypes.h` remains as an ABI bridge for private multitouch struct
+layout; the runtime logic itself is Swift.
 
-It now also builds a lightweight macOS menu bar app named `DeadPad.app`. The app
-packages `deadpad` as an internal helper. Clicking the `DP` menu bar item opens
-a small control window with start, stop, restart, Start at login, Accessibility
-settings, log-opening, and quit actions.
+It now also builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
+The app packages `deadpad` as an internal helper. Clicking the `DP` menu bar
+item opens a small control window with start, stop, restart, Start at login,
+Accessibility settings, log-opening, and quit actions.
 
 Implemented features:
 

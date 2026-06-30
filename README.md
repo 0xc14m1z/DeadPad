@@ -1,9 +1,13 @@
 # DeadPad
 
-`deadpad` is a small personal macOS utility that reads raw trackpad touch
-coordinates through Apple's private `MultitouchSupport.framework`, then uses a
-CoreGraphics HID event tap to suppress mouse, drag, click, and scroll events
-when touches start inside configured dead zones.
+`deadpad` is a small personal macOS utility written in Swift. It reads raw
+trackpad touch coordinates through Apple's private
+`MultitouchSupport.framework`, then uses a CoreGraphics HID event tap to
+suppress mouse, drag, click, and scroll events when touches start inside
+configured dead zones. The menu bar app wrapper is also written in Swift.
+
+`src/DeadPadCoreTypes.h` only declares the private multitouch C structs so
+Swift can read the raw callback memory with the correct ABI layout.
 
 This is intentionally not App Store software. It uses private macOS APIs and is
 meant for personal use.

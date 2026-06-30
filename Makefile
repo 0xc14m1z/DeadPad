@@ -1,7 +1,11 @@
-CC := clang
-CFLAGS := -Wall -Wextra -Wpedantic -O2 -fobjc-arc
+SWIFTC := swiftc
+ARCH ?= $(shell uname -m)
+MACOSX_DEPLOYMENT_TARGET ?= 12.0
+SWIFTFLAGS := -O -target $(ARCH)-apple-macos$(MACOSX_DEPLOYMENT_TARGET)
+CLI_SWIFTFLAGS := $(SWIFTFLAGS) -import-objc-header src/DeadPadCoreTypes.h
 CLI_FRAMEWORKS := -framework Foundation -framework ApplicationServices
-APP_FRAMEWORKS := -framework Cocoa -framework ApplicationServices
+APP_SWIFTFLAGS := $(SWIFTFLAGS)
+APP_FRAMEWORKS := -framework Cocoa
 
 PREFIX ?= /usr/local
 APP_NAME := DeadPad
@@ -21,11 +25,11 @@ cli: deadpad
 
 app: $(APP_EXEC) $(APP_HELPER) $(APP_PLIST)
 
-deadpad: src/deadpad.m
-	$(CC) $(CFLAGS) -o $@ $< $(CLI_FRAMEWORKS)
+deadpad: src/deadpad.swift src/DeadPadCoreTypes.h
+	$(SWIFTC) $(CLI_SWIFTFLAGS) -o $@ src/deadpad.swift $(CLI_FRAMEWORKS)
 
-$(APP_EXEC): src/DeadPadApp.m | $(APP_MACOS)
-	$(CC) $(CFLAGS) -o $@ $< $(APP_FRAMEWORKS)
+$(APP_EXEC): src/DeadPadApp.swift | $(APP_MACOS)
+	$(SWIFTC) $(APP_SWIFTFLAGS) -o $@ $< $(APP_FRAMEWORKS)
 
 $(APP_HELPER): deadpad | $(APP_RESOURCES)
 	install -m 755 deadpad $@
