@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.local.deadpad</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/morgandam/Documents/repos/DeadPad/deadpad</string>
+    <string>--left-cm</string>
+    <string>2</string>
+    <string>--right-cm</string>
+    <string>2</string>
+    <string>--policy</string>
+    <string>all</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/deadpad.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/tmp/deadpad.err.log</string>
+</dict>
+</plist>
