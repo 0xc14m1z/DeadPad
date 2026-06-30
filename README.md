@@ -35,18 +35,21 @@ Run:
 open DeadPad.app
 ```
 
-The app appears as `DP` in the macOS menu bar. It starts the filter
-automatically with:
+The app appears as `DP` in the macOS menu bar. Clicking `DP` opens the DeadPad
+window.
+
+It starts the filter automatically with:
 
 ```text
 --left-cm 2 --right-cm 2 --policy all --verbose
 ```
 
-The menu contains:
+The window contains:
 
 - `Start Filter`
 - `Stop Filter`
 - `Restart Filter`
+- `Start at login`
 - `Open Accessibility Settings`
 - `Open Log`
 - `Quit DeadPad`
@@ -55,6 +58,12 @@ Logs are written to:
 
 ```text
 ~/Library/Logs/DeadPad/deadpad.log
+```
+
+The `Start at login` checkbox creates or removes this user LaunchAgent:
+
+```text
+~/Library/LaunchAgents/com.local.deadpad.app.plist
 ```
 
 ## First run
