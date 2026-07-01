@@ -31,6 +31,18 @@ make cli
 make app
 ```
 
+## Xcode
+
+Open the project:
+
+```sh
+open DeadPad.xcodeproj
+```
+
+Select the `DeadPad` scheme and press Run. The app target builds the Swift
+`deadpad` helper in a build phase, then places it in
+`DeadPad.app/Contents/Resources`.
+
 ## Menu bar app
 
 Run:
@@ -40,7 +52,14 @@ open DeadPad.app
 ```
 
 The app appears as `DP` in the macOS menu bar. Clicking `DP` opens the DeadPad
-window.
+window. The window shows proportional rectangles for detected devices using
+their physical surface sizes. Device 0 is rounded, and the other devices appear
+below it in different colors.
+
+The `Match active area` button uses the built-in trackpad as the reference
+surface. Extra trackpads show red diagonal hatching over the disabled area, and
+the helper is restarted with matching centimeter dead zones when the filter is
+already running.
 
 It starts the filter automatically with:
 

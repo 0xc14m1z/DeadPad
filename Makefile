@@ -1,7 +1,7 @@
 SWIFTC := swiftc
 ARCH ?= $(shell uname -m)
 MACOSX_DEPLOYMENT_TARGET ?= 12.0
-SWIFTFLAGS := -O -target $(ARCH)-apple-macos$(MACOSX_DEPLOYMENT_TARGET)
+SWIFTFLAGS := -O -parse-as-library -target $(ARCH)-apple-macos$(MACOSX_DEPLOYMENT_TARGET)
 CLI_SWIFTFLAGS := $(SWIFTFLAGS) -import-objc-header src/DeadPadCoreTypes.h
 CLI_FRAMEWORKS := -framework Foundation -framework ApplicationServices
 APP_SWIFTFLAGS := $(SWIFTFLAGS)

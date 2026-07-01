@@ -56,7 +56,10 @@ layout; the runtime logic itself is Swift.
 It now also builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
 The app packages `deadpad` as an internal helper. Clicking the `DP` menu bar
 item opens a small control window with start, stop, restart, Start at login,
-Accessibility settings, log-opening, and quit actions.
+Accessibility settings, log-opening, quit actions, and proportional previews of
+the detected physical device surfaces. The window can also match external
+trackpad active areas to the built-in trackpad by showing red disabled-area
+hatching and passing the corresponding centimeter dead zones to the helper.
 
 Implemented features:
 
@@ -80,6 +83,8 @@ Implemented features:
   - `run.command`
 - Builds a menu bar app:
   - `DeadPad.app`
+- Includes an Xcode project:
+  - `DeadPad.xcodeproj`
 - Includes an example LaunchAgent plist:
   - `com.local.deadpad.plist.example`
 

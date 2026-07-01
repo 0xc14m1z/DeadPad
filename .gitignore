@@ -2,3 +2,8 @@
 *.dSYM/
 DeadPad.app/
 deadpad
+build/
+DerivedData/
+*.xcuserdata/
+xcuserdata/
+*.xcuserstate

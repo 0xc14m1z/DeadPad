@@ -766,7 +766,7 @@ func eventTapCallback(
     return Unmanaged.passUnretained(event)
 }
 
-func main() -> Int32 {
+func runDeadPad() -> Int32 {
     if !runtime.parseArguments(CommandLine.arguments) {
         runtime.printUsage(program: CommandLine.arguments[0])
         return 1
@@ -834,4 +834,9 @@ func main() -> Int32 {
     return 0
 }
 
-exit(main())
+@main
+enum DeadPadCommand {
+    static func main() {
+        exit(runDeadPad())
+    }
+}
