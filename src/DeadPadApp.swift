@@ -31,6 +31,11 @@ private final class DevicesPreviewView: NSView {
             needsDisplay = true
         }
     }
+    var touchPressed = false {
+        didSet {
+            needsDisplay = true
+        }
+    }
 
     override var isFlipped: Bool {
         true
@@ -262,11 +267,15 @@ private final class DevicesPreviewView: NSView {
                 height: innerRadius * 2
             )
 
+            let indicatorColor: NSColor = touchPressed ? .systemRed : .controlAccentColor
+
             NSColor.white.withAlphaComponent(0.95).setFill()
             NSBezierPath(ovalIn: outerRect).fill()
-            NSColor.controlAccentColor.setFill()
+            indicatorColor.setFill()
             NSBezierPath(ovalIn: innerRect).fill()
-            NSColor.labelColor.withAlphaComponent(0.28).setStroke()
+            (touchPressed ? NSColor.systemRed : NSColor.labelColor)
+                .withAlphaComponent(touchPressed ? 0.42 : 0.28)
+                .setStroke()
             NSBezierPath(ovalIn: outerRect).stroke()
         }
     }
@@ -310,6 +319,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private var touchStreamBuffer = Data()
     private var activeTouchIndicators: [String: TouchIndicator] = [:]
     private var touchCleanupTimer: Timer?
+    private var localClickMonitor: Any?
+    private var globalClickMonitor: Any?
+    private var touchPressed = false
     private var logPath = ""
     private var restartAfterStop = false
 
@@ -323,6 +335,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     func applicationWillTerminate(_ notification: Notification) {
         restartAfterStop = false
+        stopClickMonitors()
         stopTouchStream()
         stopFilter(nil)
     }
@@ -470,6 +483,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     }
 
     func windowWillClose(_ notification: Notification) {
+        stopClickMonitors()
         stopTouchStream()
     }
 
@@ -500,6 +514,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         updateAppState(status: isFilterRunning ? "Running" : "Stopped")
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        startClickMonitors()
         startTouchStream()
     }
 
@@ -767,6 +782,65 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         touchStreamBuffer.removeAll()
         activeTouchIndicators.removeAll()
         publishTouchIndicators()
+    }
+
+    private func startClickMonitors() {
+        if localClickMonitor != nil || globalClickMonitor != nil {
+            return
+        }
+
+        let clickMask: NSEvent.EventTypeMask = [
+            .leftMouseDown,
+            .leftMouseUp,
+            .rightMouseDown,
+            .rightMouseUp,
+            .otherMouseDown,
+            .otherMouseUp
+        ]
+
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: clickMask) { [weak self] event in
+            self?.handleClickEvent(event)
+            return event
+        }
+
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: clickMask) { [weak self] event in
+            DispatchQueue.main.async {
+                self?.handleClickEvent(event)
+            }
+        }
+    }
+
+    private func stopClickMonitors() {
+        if let localClickMonitor {
+            NSEvent.removeMonitor(localClickMonitor)
+        }
+        if let globalClickMonitor {
+            NSEvent.removeMonitor(globalClickMonitor)
+        }
+
+        localClickMonitor = nil
+        globalClickMonitor = nil
+        setTouchPressed(false)
+    }
+
+    private func handleClickEvent(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            setTouchPressed(true)
+        case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+            setTouchPressed(false)
+        default:
+            break
+        }
+    }
+
+    private func setTouchPressed(_ pressed: Bool) {
+        guard touchPressed != pressed else {
+            return
+        }
+
+        touchPressed = pressed
+        devicesPreviewView?.touchPressed = pressed
     }
 
     private func startTouchCleanupTimer() {
