@@ -7,6 +7,14 @@ private struct DeviceSurface {
     let builtIn: Bool
 }
 
+private struct TouchIndicator {
+    let deviceIndex: Int
+    let pathIndex: Int
+    let x: Double
+    let y: Double
+    let lastSeen: Date
+}
+
 private final class DevicesPreviewView: NSView {
     var devices: [DeviceSurface] = [] {
         didSet {
@@ -14,6 +22,11 @@ private final class DevicesPreviewView: NSView {
         }
     }
     var matchActiveAreaEnabled = false {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    var touchIndicators: [Int: [TouchIndicator]] = [:] {
         didSet {
             needsDisplay = true
         }
@@ -90,6 +103,7 @@ private final class DevicesPreviewView: NSView {
         }
 
         drawLabel(for: device, in: activeRect ?? rect)
+        drawTouchIndicators(for: device, in: rect)
     }
 
     private func drawLabel(for device: DeviceSurface, in rect: NSRect) {
@@ -223,6 +237,44 @@ private final class DevicesPreviewView: NSView {
         activePath.stroke()
     }
 
+    private func drawTouchIndicators(for device: DeviceSurface, in rect: NSRect) {
+        guard let touches = touchIndicators[device.index] else {
+            return
+        }
+
+        for touch in touches {
+            let point = NSPoint(
+                x: rect.minX + CGFloat(clampUnit(touch.x)) * rect.width,
+                y: rect.minY + CGFloat(1.0 - clampUnit(touch.y)) * rect.height
+            )
+            let outerRadius: CGFloat = 6
+            let innerRadius: CGFloat = 4
+            let outerRect = NSRect(
+                x: point.x - outerRadius,
+                y: point.y - outerRadius,
+                width: outerRadius * 2,
+                height: outerRadius * 2
+            )
+            let innerRect = NSRect(
+                x: point.x - innerRadius,
+                y: point.y - innerRadius,
+                width: innerRadius * 2,
+                height: innerRadius * 2
+            )
+
+            NSColor.white.withAlphaComponent(0.95).setFill()
+            NSBezierPath(ovalIn: outerRect).fill()
+            NSColor.controlAccentColor.setFill()
+            NSBezierPath(ovalIn: innerRect).fill()
+            NSColor.labelColor.withAlphaComponent(0.28).setStroke()
+            NSBezierPath(ovalIn: outerRect).stroke()
+        }
+    }
+
+    private func clampUnit(_ value: Double) -> Double {
+        min(max(value, 0), 1)
+    }
+
     private func colorForDevice(at index: Int) -> NSColor {
         let colors: [NSColor] = [
             .controlAccentColor,
@@ -237,7 +289,7 @@ private final class DevicesPreviewView: NSView {
     }
 }
 
-final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
+final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var window: NSWindow?
     private weak var statusLabel: NSTextField?
@@ -247,11 +299,17 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
     private weak var stopButton: NSButton?
     private weak var restartButton: NSButton?
     private weak var startAtLoginCheckbox: NSButton?
-    private weak var matchActiveAreaButton: NSButton?
+    private weak var matchActiveAreaCheckbox: NSButton?
     private var deviceSurfaces: [DeviceSurface] = []
     private var matchActiveAreaEnabled = false
     private var task: Process?
     private var logHandle: FileHandle?
+    private var touchStreamTask: Process?
+    private var touchStreamPipe: Pipe?
+    private var touchStreamLogHandle: FileHandle?
+    private var touchStreamBuffer = Data()
+    private var activeTouchIndicators: [String: TouchIndicator] = [:]
+    private var touchCleanupTimer: Timer?
     private var logPath = ""
     private var restartAfterStop = false
 
@@ -265,6 +323,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         restartAfterStop = false
+        stopTouchStream()
         stopFilter(nil)
     }
 
@@ -306,6 +365,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "DeadPad"
+        window.delegate = self
         window.isReleasedWhenClosed = false
         window.center()
         self.window = window
@@ -352,13 +412,13 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
         content.addSubview(startAtLoginCheckbox)
         self.startAtLoginCheckbox = startAtLoginCheckbox
 
-        let matchActiveAreaButton = button(
-            frame: NSRect(x: 242, y: 398, width: 156, height: 28),
-            title: "Match active area",
-            action: #selector(matchActiveArea(_:))
-        )
-        content.addSubview(matchActiveAreaButton)
-        self.matchActiveAreaButton = matchActiveAreaButton
+        let matchActiveAreaCheckbox = NSButton(frame: NSRect(x: 238, y: 400, width: 160, height: 24))
+        matchActiveAreaCheckbox.setButtonType(.switch)
+        matchActiveAreaCheckbox.title = "Match active area"
+        matchActiveAreaCheckbox.target = self
+        matchActiveAreaCheckbox.action = #selector(toggleMatchActiveArea(_:))
+        content.addSubview(matchActiveAreaCheckbox)
+        self.matchActiveAreaCheckbox = matchActiveAreaCheckbox
 
         let startButton = button(
             frame: NSRect(x: 22, y: 62, width: 92, height: 30),
@@ -406,6 +466,11 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
         content.addSubview(quitButton)
 
         refreshStartAtLoginCheckbox()
+        refreshMatchActiveAreaCheckbox()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        stopTouchStream()
     }
 
     private func label(frame: NSRect, text: String, fontSize: CGFloat, bold: Bool) -> NSTextField {
@@ -435,6 +500,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
         updateAppState(status: isFilterRunning ? "Running" : "Stopped")
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        startTouchStream()
     }
 
     private func refreshDevicePreview() {
@@ -559,16 +625,20 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
         startAtLoginCheckbox?.state = isStartAtLoginEnabled ? .on : .off
     }
 
-    @objc private func matchActiveArea(_ sender: Any?) {
-        matchActiveAreaEnabled = true
+    private func refreshMatchActiveAreaCheckbox() {
+        matchActiveAreaCheckbox?.state = matchActiveAreaEnabled ? .on : .off
+    }
+
+    @objc private func toggleMatchActiveArea(_ sender: Any?) {
+        matchActiveAreaEnabled = matchActiveAreaCheckbox?.state == .on
 
         if deviceSurfaces.isEmpty {
             refreshDevicePreview()
         } else {
-            devicesPreviewView?.matchActiveAreaEnabled = true
+            devicesPreviewView?.matchActiveAreaEnabled = matchActiveAreaEnabled
         }
 
-        appendLogLine("DeadPad app enabled Match active area.")
+        appendLogLine("DeadPad app \(matchActiveAreaEnabled ? "enabled" : "disabled") Match active area.")
 
         if isFilterRunning {
             restartAfterStop = true
@@ -619,6 +689,203 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate {
 
         handle.seekToEndOfFile()
         return handle
+    }
+
+    private func startTouchStream() {
+        if touchStreamTask?.isRunning == true {
+            return
+        }
+
+        let helperPath = self.helperPath
+        guard FileManager.default.isExecutableFile(atPath: helperPath) else {
+            return
+        }
+
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: helperPath)
+        process.arguments = ["--stream-touches"]
+        process.standardOutput = pipe
+        touchStreamLogHandle = openLogHandle()
+        process.standardError = touchStreamLogHandle
+
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                self?.handleTouchStreamData(data)
+            }
+        }
+
+        process.terminationHandler = { [weak self] finishedProcess in
+            DispatchQueue.main.async {
+                guard let self, self.touchStreamTask === finishedProcess else {
+                    return
+                }
+
+                self.touchStreamPipe?.fileHandleForReading.readabilityHandler = nil
+                self.touchStreamTask = nil
+                self.touchStreamPipe = nil
+                self.touchStreamLogHandle?.closeFile()
+                self.touchStreamLogHandle = nil
+                self.activeTouchIndicators.removeAll()
+                self.publishTouchIndicators()
+            }
+        }
+
+        do {
+            try process.run()
+        } catch {
+            pipe.fileHandleForReading.readabilityHandler = nil
+            touchStreamLogHandle?.closeFile()
+            touchStreamLogHandle = nil
+            appendLogLine("DeadPad app could not start touch stream: \(error.localizedDescription)")
+            return
+        }
+
+        touchStreamTask = process
+        touchStreamPipe = pipe
+        startTouchCleanupTimer()
+    }
+
+    private func stopTouchStream() {
+        touchCleanupTimer?.invalidate()
+        touchCleanupTimer = nil
+        touchStreamPipe?.fileHandleForReading.readabilityHandler = nil
+
+        if touchStreamTask?.isRunning == true {
+            touchStreamTask?.terminate()
+        }
+
+        touchStreamTask = nil
+        touchStreamPipe = nil
+        touchStreamLogHandle?.closeFile()
+        touchStreamLogHandle = nil
+        touchStreamBuffer.removeAll()
+        activeTouchIndicators.removeAll()
+        publishTouchIndicators()
+    }
+
+    private func startTouchCleanupTimer() {
+        if touchCleanupTimer != nil {
+            return
+        }
+
+        let timer = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
+            self?.removeStaleTouches()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        touchCleanupTimer = timer
+    }
+
+    private func handleTouchStreamData(_ data: Data) {
+        touchStreamBuffer.append(data)
+        let newline = Data([0x0A])
+
+        while let range = touchStreamBuffer.range(of: newline) {
+            let lineData = touchStreamBuffer.subdata(in: touchStreamBuffer.startIndex..<range.lowerBound)
+            touchStreamBuffer.removeSubrange(touchStreamBuffer.startIndex...range.lowerBound)
+
+            guard let line = String(data: lineData, encoding: .utf8) else {
+                continue
+            }
+
+            handleTouchStreamLine(line.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    private func handleTouchStreamLine(_ line: String) {
+        guard !line.isEmpty else {
+            return
+        }
+
+        let parts = line.split(separator: " ")
+        guard let event = parts.first else {
+            return
+        }
+
+        var values: [String: String] = [:]
+        for part in parts.dropFirst() {
+            let pair = part.split(separator: "=", maxSplits: 1)
+            if pair.count == 2 {
+                values[String(pair[0])] = String(pair[1])
+            }
+        }
+
+        switch event {
+        case "touch":
+            guard let deviceText = values["device"],
+                  let pathText = values["path"],
+                  let xText = values["x"],
+                  let yText = values["y"],
+                  let deviceIndex = Int(deviceText),
+                  let pathIndex = Int(pathText),
+                  let x = Double(xText),
+                  let y = Double(yText) else {
+                return
+            }
+
+            activeTouchIndicators[touchKey(deviceIndex: deviceIndex, pathIndex: pathIndex)] = TouchIndicator(
+                deviceIndex: deviceIndex,
+                pathIndex: pathIndex,
+                x: x,
+                y: y,
+                lastSeen: Date()
+            )
+            publishTouchIndicators()
+        case "touch-end":
+            guard let deviceText = values["device"],
+                  let pathText = values["path"],
+                  let deviceIndex = Int(deviceText),
+                  let pathIndex = Int(pathText) else {
+                return
+            }
+
+            activeTouchIndicators.removeValue(forKey: touchKey(deviceIndex: deviceIndex, pathIndex: pathIndex))
+            publishTouchIndicators()
+        case "touch-clear":
+            guard let deviceText = values["device"],
+                  let deviceIndex = Int(deviceText) else {
+                return
+            }
+
+            activeTouchIndicators = activeTouchIndicators.filter { _, touch in
+                touch.deviceIndex != deviceIndex
+            }
+            publishTouchIndicators()
+        default:
+            return
+        }
+    }
+
+    private func removeStaleTouches() {
+        let now = Date()
+        let freshTouches = activeTouchIndicators.filter { _, touch in
+            now.timeIntervalSince(touch.lastSeen) <= 0.25
+        }
+
+        guard freshTouches.count != activeTouchIndicators.count else {
+            return
+        }
+
+        activeTouchIndicators = freshTouches
+        publishTouchIndicators()
+    }
+
+    private func publishTouchIndicators() {
+        var grouped: [Int: [TouchIndicator]] = [:]
+        for touch in activeTouchIndicators.values {
+            grouped[touch.deviceIndex, default: []].append(touch)
+        }
+
+        devicesPreviewView?.touchIndicators = grouped
+    }
+
+    private func touchKey(deviceIndex: Int, pathIndex: Int) -> String {
+        "\(deviceIndex):\(pathIndex)"
     }
 
     private var deadPadArguments: [String] {

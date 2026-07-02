@@ -59,7 +59,9 @@ item opens a small control window with start, stop, restart, Start at login,
 Accessibility settings, log-opening, quit actions, and proportional previews of
 the detected physical device surfaces. The window can also match external
 trackpad active areas to the built-in trackpad by showing red disabled-area
-hatching and passing the corresponding centimeter dead zones to the helper.
+hatching and passing the corresponding centimeter dead zones to the helper. When
+the window is open, live touches are rendered as moving dots on the corresponding
+trackpad preview.
 
 Implemented features:
 
@@ -74,6 +76,8 @@ Implemented features:
   trackpad size.
 - Provides a monitor mode that prints raw touch coordinates without blocking
   input.
+- Provides a stream mode for the app preview that reports live touch positions
+  without suppressing input.
 - Provides a filtering mode that suppresses mouse movement, clicks, drags, and
   scroll events while a dead-zone touch is active.
 - Supports `--policy all` and `--policy any`.
@@ -176,8 +180,8 @@ mouse, drag, click, and scroll events.
 Because the raw touch API is private, macOS updates could change behavior or
 break compatibility.
 
-The current version is a command-line tool rather than a menu bar app. It has no
-visual editor for drawing dead zones yet.
+The current menu bar app has a fixed active-area matching control. It does not
+yet have a freeform visual editor for drawing arbitrary dead zones.
 
 The current LaunchAgent file is only an example. It should be used after manual
 testing confirms that the filter behaves correctly and permissions are granted.
@@ -186,12 +190,9 @@ testing confirms that the filter behaves correctly and permissions are granted.
 
 Recommended next improvements:
 
-- Add a small menu bar app wrapper for starting, stopping, and showing current
-  status.
 - Add a calibration UI that lets the user drag dead-zone boundaries visually.
 - Store configuration in a user config file instead of requiring command-line
   arguments.
-- Add a launch-at-login installer/uninstaller command.
 - Improve event-source discrimination if possible, so external trackpad events
   can be separated more reliably from mouse or built-in trackpad events.
 - Add structured logging for suppressed event counts and active dead-zone

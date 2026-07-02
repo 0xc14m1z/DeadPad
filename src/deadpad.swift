@@ -50,6 +50,7 @@ struct Options {
     var policy = BlockPolicy.allDead
     var listDevices = false
     var monitorOnly = false
+    var streamTouches = false
     var verbose = false
 }
 
@@ -78,9 +79,11 @@ final class DeadPadRuntime {
     var options = Options()
     var multitouch = MultitouchAPI()
     var selectedDevice: DeviceRef = nil
+    var streamDevices: [DeviceRef] = []
     var eventTap: CFMachPort?
     var shouldStop = false
 
+    private var deviceIndices: [UInt: Int] = [:]
     private var touches = Array(repeating: TouchSlot(), count: 64)
     private var blockUntilMs: UInt64 = 0
     private var suppressedEvents: UInt32 = 0
@@ -104,6 +107,9 @@ final class DeadPadRuntime {
             case "--monitor":
                 options.monitorOnly = true
                 options.verbose = true
+            case "--stream-touches":
+                options.streamTouches = true
+                options.monitorOnly = true
             case "--verbose":
                 options.verbose = true
             case "--invert-x":
@@ -204,6 +210,7 @@ final class DeadPadRuntime {
         Options:
           --list-devices              Print multitouch devices and exit.
           --monitor                   Print touches and block decisions; do not suppress events.
+          --stream-touches            Stream touch points for UI previews; do not suppress events.
           --device INDEX              Use device at INDEX from --list-devices.
           --left N                    Left dead zone as normalized width, default 0.125.
           --right N                   Right dead zone as normalized width, default 0.125.
@@ -292,6 +299,15 @@ final class DeadPadRuntime {
             writeStderr(" surface=unknown")
         }
         writeStderr("\n")
+    }
+
+    func rememberDeviceIndices(from devices: CFArray) {
+        deviceIndices.removeAll()
+        let count = CFArrayGetCount(devices)
+        for index in 0..<count {
+            let device = CFArrayGetValueAtIndex(devices, index)
+            deviceIndices[deviceKey(device)] = index
+        }
     }
 
     func chooseDevice(from devices: CFArray) -> DeviceRef {
@@ -398,8 +414,13 @@ final class DeadPadRuntime {
         multitouch.stop?(device)
     }
 
-    func contactFrame(touches touchesPointer: UnsafeMutablePointer<MTTouch>?, touchCount: Int32) {
+    func contactFrame(device: DeviceRef, touches touchesPointer: UnsafeMutablePointer<MTTouch>?, touchCount: Int32) {
         guard let touchesPointer else {
+            return
+        }
+
+        if options.streamTouches {
+            streamTouchFrame(device: device, touches: touchesPointer, touchCount: touchCount)
             return
         }
 
@@ -624,9 +645,51 @@ final class DeadPadRuntime {
 
         writeStderr("touches=\(touchCount) active=\(active) dead-start=\(dead) blocking=\(blocking ? "yes" : "no") suppressed/s=\(suppressed) blockedFrames/s=\(blocked)\n")
     }
+
+    private func streamTouchFrame(
+        device: DeviceRef,
+        touches touchesPointer: UnsafeMutablePointer<MTTouch>,
+        touchCount: Int32
+    ) {
+        let deviceIndex = deviceIndices[deviceKey(device)] ?? -1
+
+        if touchCount <= 0 {
+            writeStdout("touch-clear device=\(deviceIndex)\n")
+            return
+        }
+
+        for index in 0..<Int(touchCount) {
+            let touch = touchesPointer[index]
+
+            if isReleaseState(touch.state, touch.zTotal) {
+                writeStdout("touch-end device=\(deviceIndex) path=\(touch.pathIndex)\n")
+                continue
+            }
+
+            guard isContactState(touch.state, touch.zTotal) else {
+                continue
+            }
+
+            let x = normalizedX(touch)
+            let y = normalizedY(touch)
+            writeStdout(String(
+                format: "touch device=%d path=%d x=%.5f y=%.5f\n",
+                deviceIndex,
+                touch.pathIndex,
+                x,
+                y
+            ))
+        }
+    }
 }
 
 let runtime = DeadPadRuntime()
+
+func writeStdout(_ text: String) {
+    if let data = text.data(using: .utf8) {
+        FileHandle.standardOutput.write(data)
+    }
+}
 
 func writeStderr(_ text: String) {
     if let data = text.data(using: .utf8) {
@@ -657,6 +720,14 @@ func parseInt(_ value: String) -> Int? {
 
 func nowMs() -> UInt64 {
     UInt64(Date().timeIntervalSince1970 * 1000.0)
+}
+
+func deviceKey(_ device: DeviceRef) -> UInt {
+    guard let device else {
+        return 0
+    }
+
+    return UInt(bitPattern: device)
 }
 
 func requireSymbol<T>(_ handle: UnsafeMutableRawPointer, _ name: String, as type: T.Type) -> T {
@@ -741,7 +812,7 @@ func contactFrameCallback(
     timestamp: Double,
     frame: Int32
 ) {
-    runtime.contactFrame(touches: touches, touchCount: touchCount)
+    runtime.contactFrame(device: device, touches: touches, touchCount: touchCount)
 }
 
 func eventTapCallback(
@@ -783,6 +854,44 @@ func runDeadPad() -> Int32 {
         for index in 0..<count {
             runtime.printDevice(index: index, device: CFArrayGetValueAtIndex(devices, index))
         }
+        return 0
+    }
+
+    runtime.rememberDeviceIndices(from: devices)
+
+    if runtime.options.streamTouches {
+        for index in 0..<count {
+            let device = CFArrayGetValueAtIndex(devices, index)
+            runtime.streamDevices.append(device)
+            runtime.registerTouchCallback(device: device)
+            runtime.startDevice(device: device)
+        }
+
+        let timer = CFRunLoopTimerCreate(
+            kCFAllocatorDefault,
+            CFAbsoluteTimeGetCurrent() + 3600.0,
+            3600.0,
+            0,
+            0,
+            keepAliveTimerCallback,
+            nil
+        )
+
+        if let timer {
+            CFRunLoopAddTimer(CFRunLoopGetMain(), timer, .commonModes)
+        }
+
+        CFRunLoopRun()
+
+        if let timer {
+            CFRunLoopRemoveTimer(CFRunLoopGetMain(), timer, .commonModes)
+        }
+
+        for device in runtime.streamDevices {
+            runtime.unregisterTouchCallback(device: device)
+            runtime.stopDevice(device: device)
+        }
+
         return 0
     }
 

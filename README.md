@@ -56,10 +56,14 @@ window. The window shows proportional rectangles for detected devices using
 their physical surface sizes. Device 0 is rounded, and the other devices appear
 below it in different colors.
 
-The `Match active area` button uses the built-in trackpad as the reference
-surface. Extra trackpads show red diagonal hatching over the disabled area, and
-the helper is restarted with matching centimeter dead zones when the filter is
-already running.
+The `Match active area` checkbox uses the built-in trackpad as the reference
+surface when enabled. Extra trackpads show red diagonal hatching over the
+disabled area, and the helper is restarted with matching centimeter dead zones
+when the filter is already running. Turning it off hides the overlay and returns
+the helper to the default dead-zone settings.
+
+While the window is open, active touches are shown as small moving dots on the
+corresponding trackpad preview.
 
 It starts the filter automatically with:
 
@@ -73,6 +77,7 @@ The window contains:
 - `Stop Filter`
 - `Restart Filter`
 - `Start at login`
+- `Match active area`
 - `Open Accessibility Settings`
 - `Open Log`
 - `Quit DeadPad`
@@ -165,6 +170,7 @@ can.
 ```text
 --list-devices              Print multitouch devices and exit.
 --monitor                   Print touches and decisions; do not suppress events.
+--stream-touches            Stream touch points for the app preview.
 --device INDEX              Use a specific device from --list-devices.
 --left N                    Left dead zone as normalized width.
 --right N                   Right dead zone as normalized width.
