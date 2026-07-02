@@ -108,7 +108,7 @@ private final class DevicesPreviewView: NSView {
         }
 
         drawLabel(for: device, in: activeRect ?? rect)
-        drawTouchIndicators(for: device, in: rect)
+        drawTouchIndicators(for: device, in: rect, activeRect: activeRect)
     }
 
     private func drawLabel(for device: DeviceSurface, in rect: NSRect) {
@@ -242,7 +242,7 @@ private final class DevicesPreviewView: NSView {
         activePath.stroke()
     }
 
-    private func drawTouchIndicators(for device: DeviceSurface, in rect: NSRect) {
+    private func drawTouchIndicators(for device: DeviceSurface, in rect: NSRect, activeRect: NSRect?) {
         guard let touches = touchIndicators[device.index] else {
             return
         }
@@ -267,15 +267,26 @@ private final class DevicesPreviewView: NSView {
                 height: innerRadius * 2
             )
 
-            let indicatorColor: NSColor = touchPressed ? .systemRed : .controlAccentColor
+            let disabled = activeRect.map { !$0.contains(point) } ?? false
+            let indicatorColor: NSColor
+            let strokeColor: NSColor
+
+            if disabled {
+                indicatorColor = .systemYellow
+                strokeColor = .systemYellow
+            } else if touchPressed {
+                indicatorColor = .systemRed
+                strokeColor = .systemRed
+            } else {
+                indicatorColor = .controlAccentColor
+                strokeColor = .labelColor
+            }
 
             NSColor.white.withAlphaComponent(0.95).setFill()
             NSBezierPath(ovalIn: outerRect).fill()
             indicatorColor.setFill()
             NSBezierPath(ovalIn: innerRect).fill()
-            (touchPressed ? NSColor.systemRed : NSColor.labelColor)
-                .withAlphaComponent(touchPressed ? 0.42 : 0.28)
-                .setStroke()
+            strokeColor.withAlphaComponent(disabled || touchPressed ? 0.42 : 0.28).setStroke()
             NSBezierPath(ovalIn: outerRect).stroke()
         }
     }
