@@ -63,7 +63,7 @@ when the filter is already running. Turning it off hides the overlay and returns
 the helper to the default dead-zone settings.
 
 While the window is open, active touches are shown as small moving dots on the
-corresponding trackpad preview. The dots turn red only while the trackpad is
+corresponding trackpad preview. The dots turn green only while the trackpad is
 pressed/clicked, and turn yellow when `Match active area` is enabled and the
 touch is inside a disabled area.
 

@@ -275,8 +275,8 @@ private final class DevicesPreviewView: NSView {
                 indicatorColor = .systemYellow
                 strokeColor = .systemYellow
             } else if touchPressed {
-                indicatorColor = .systemRed
-                strokeColor = .systemRed
+                indicatorColor = .systemGreen
+                strokeColor = .systemGreen
             } else {
                 indicatorColor = .controlAccentColor
                 strokeColor = .labelColor
