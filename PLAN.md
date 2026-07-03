@@ -53,13 +53,12 @@ It builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
 `src/DeadPadCoreTypes.h` remains as an ABI bridge for private multitouch struct
 layout; the runtime logic itself is Swift. The app packages `deadpad` as an
 internal helper rather than exposing CLI launch scripts. Clicking the `DP` menu
-bar item opens a small control window with start, stop, restart, Start at login,
-Accessibility settings, log-opening, quit actions, and proportional previews of
-the detected physical device surfaces. The window can also match external
-trackpad active areas to the built-in trackpad by showing red disabled-area
-hatching and passing the corresponding centimeter dead zones to the helper. When
-the window is open, live touches are rendered as moving dots on the corresponding
-trackpad preview.
+bar item opens a Trackpad Matcher-style window with a custom title bar, a
+centered Magic Trackpad stage, and two animated switch rows. The window can
+match the Magic Trackpad active area to the built-in trackpad by animating the
+blue active area, fading in disabled-area hatching, and passing the corresponding
+centimeter dead zones to the helper. When the window is open, live touches are
+rendered as moving dots on the stage.
 
 Implemented features:
 
@@ -108,7 +107,7 @@ open DeadPad.app
 ```
 
 Open the `DP` menu bar item, verify that detected trackpads render in the
-window, then press `Start`.
+window, and enable `Riduci area attiva` to verify the active-area animation.
 
 The first filtering run may require enabling Accessibility permission for
 `DeadPad` or its bundled `deadpad` helper:

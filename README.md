@@ -42,31 +42,25 @@ open DeadPad.app
 ```
 
 The app appears as `DP` in the macOS menu bar. Click `DP` to open the DeadPad
-window. The window shows proportional rectangles for detected devices using
-their physical surface sizes. Device 0 is rounded, and the other devices appear
-below it in different colors.
+window. The window matches the Trackpad Matcher prototype: a custom title bar,
+a centered Magic Trackpad stage, and two animated switch rows.
 
-The `Match active area` checkbox uses the built-in trackpad as the reference
-surface when enabled. Extra trackpads show red diagonal hatching over the
-disabled area, and the helper is restarted with matching centimeter dead zones
-when the filter is already running. Turning it off hides the overlay and returns
-the helper to the default dead-zone settings.
+The `Riduci area attiva` switch uses the built-in trackpad as the reference
+surface when enabled. The Magic Trackpad stage animates the blue active area down
+to the integrated trackpad size, fades in the disabled hatching, and restarts the
+helper with matching centimeter dead zones when the filter is already running.
+Turning it off restores the full active-area preview and the default dead-zone
+settings.
 
 While the window is open, active touches are shown as small moving dots on the
 corresponding trackpad preview. The dots turn green only while the trackpad is
-pressed/clicked, and turn yellow when `Match active area` is enabled and the
+pressed/clicked, and turn yellow when `Riduci area attiva` is enabled and the
 touch is inside a disabled area.
 
 The window contains:
 
-- `Start`
-- `Stop`
-- `Restart`
-- `Start at login`
-- `Match active area`
-- `Accessibility`
-- `Log`
-- `Quit`
+- `Riduci area attiva`
+- `Avvia all'accesso`
 
 Logs are written to:
 
@@ -74,7 +68,7 @@ Logs are written to:
 ~/Library/Logs/DeadPad/deadpad.log
 ```
 
-The `Start at login` checkbox creates or removes this user LaunchAgent:
+The `Avvia all'accesso` switch creates or removes this user LaunchAgent:
 
 ```text
 ~/Library/LaunchAgents/com.local.deadpad.app.plist
@@ -82,10 +76,11 @@ The `Start at login` checkbox creates or removes this user LaunchAgent:
 
 ## First run
 
-Open `DeadPad.app`, click the `DP` menu bar item, and press `Start`.
+Open `DeadPad.app`, then click the `DP` menu bar item.
 
 On first launch, macOS may ask for Accessibility permission. The filter starts
-only after the permission is granted and `Start` is pressed again.
+only after the permission is granted. If the first attempt was blocked, open the
+`DP` window again after granting permission and DeadPad will retry.
 
 ## Permissions
 
@@ -97,10 +92,10 @@ System Settings > Privacy & Security > Accessibility
 
 Depending on your macOS privacy settings, you may also need Input Monitoring.
 
-If pressing `Start` opens System Settings and the status changes to
-`Needs Accessibility`, enable `DeadPad` or the bundled `deadpad` helper in that
-Accessibility list, then press `Start` again. If the entry was already enabled,
-toggle it off and on once to refresh macOS's permission.
+If System Settings opens and the app reports that Accessibility is needed,
+enable `DeadPad` or the bundled `deadpad` helper in that Accessibility list,
+then open the `DP` window again. If the entry was already enabled, toggle it off
+and on once to refresh macOS's permission.
 
 ## Important limitation
 

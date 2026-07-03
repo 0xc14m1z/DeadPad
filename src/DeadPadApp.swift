@@ -1,4 +1,5 @@
 import Cocoa
+import QuartzCore
 
 private struct DeviceSurface {
     let index: Int
@@ -15,6 +16,268 @@ private struct TouchIndicator {
     let lastSeen: Date
 }
 
+private enum MatcherColors {
+    static let window = dynamic(
+        light: NSColor(calibratedRed: 0.985, green: 0.987, blue: 0.992, alpha: 1),
+        dark: NSColor(calibratedRed: 0.140, green: 0.146, blue: 0.160, alpha: 1)
+    )
+    static let titlebar = dynamic(
+        light: NSColor(calibratedRed: 0.960, green: 0.965, blue: 0.975, alpha: 0.86),
+        dark: NSColor(calibratedRed: 0.170, green: 0.178, blue: 0.194, alpha: 0.82)
+    )
+    static let panel = dynamic(
+        light: .white,
+        dark: NSColor(calibratedRed: 0.165, green: 0.170, blue: 0.186, alpha: 1)
+    )
+    static let foreground = dynamic(
+        light: NSColor(calibratedRed: 0.190, green: 0.198, blue: 0.220, alpha: 1),
+        dark: NSColor(calibratedRed: 0.940, green: 0.945, blue: 0.955, alpha: 1)
+    )
+    static let muted = dynamic(
+        light: NSColor(calibratedRed: 0.455, green: 0.475, blue: 0.520, alpha: 1),
+        dark: NSColor(calibratedRed: 0.625, green: 0.645, blue: 0.690, alpha: 1)
+    )
+    static let faint = dynamic(
+        light: NSColor(calibratedRed: 0.620, green: 0.640, blue: 0.680, alpha: 1),
+        dark: NSColor(calibratedRed: 0.470, green: 0.490, blue: 0.530, alpha: 1)
+    )
+    static let hairline = dynamic(
+        light: NSColor(calibratedRed: 0.900, green: 0.910, blue: 0.930, alpha: 1),
+        dark: NSColor(calibratedRed: 0.285, green: 0.295, blue: 0.320, alpha: 1)
+    )
+    static let accent = dynamic(
+        light: NSColor(calibratedRed: 0.310, green: 0.400, blue: 0.900, alpha: 1),
+        dark: NSColor(calibratedRed: 0.480, green: 0.575, blue: 1.000, alpha: 1)
+    )
+    static let padFill = dynamic(
+        light: NSColor(calibratedRed: 0.940, green: 0.945, blue: 0.955, alpha: 1),
+        dark: NSColor(calibratedRed: 0.245, green: 0.255, blue: 0.280, alpha: 1)
+    )
+    static let padEdge = dynamic(
+        light: NSColor(calibratedRed: 0.805, green: 0.820, blue: 0.850, alpha: 1),
+        dark: NSColor(calibratedRed: 0.355, green: 0.370, blue: 0.405, alpha: 1)
+    )
+    static let padOff = dynamic(
+        light: NSColor(calibratedRed: 0.860, green: 0.865, blue: 0.880, alpha: 0.62),
+        dark: NSColor(calibratedRed: 0.205, green: 0.215, blue: 0.235, alpha: 0.68)
+    )
+
+    private static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
+        if #available(macOS 10.14, *) {
+            return NSColor(name: nil) { appearance in
+                let match = appearance.bestMatch(from: [.darkAqua, .aqua])
+                return match == .darkAqua ? dark : light
+            }
+        }
+
+        return light
+    }
+}
+
+private final class MatcherRootView: NSView {
+    override var isFlipped: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 15, yRadius: 15)
+        MatcherColors.window.setFill()
+        path.fill()
+        NSColor(calibratedWhite: 0, alpha: 0.16).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+}
+
+private final class MatcherTitlebarView: NSView {
+    override var isFlipped: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        MatcherColors.titlebar.setFill()
+        bounds.fill()
+
+        MatcherColors.hairline.setStroke()
+        let line = NSBezierPath()
+        line.move(to: NSPoint(x: bounds.minX, y: bounds.maxY - 0.5))
+        line.line(to: NSPoint(x: bounds.maxX, y: bounds.maxY - 0.5))
+        line.lineWidth = 1
+        line.stroke()
+
+        drawLight(center: NSPoint(x: 20, y: 21), color: NSColor(calibratedRed: 1.000, green: 0.372, blue: 0.342, alpha: 1))
+        drawLight(center: NSPoint(x: 40, y: 21), color: NSColor(calibratedRed: 0.996, green: 0.737, blue: 0.180, alpha: 1))
+        drawLight(center: NSPoint(x: 60, y: 21), color: NSColor(calibratedRed: 0.157, green: 0.784, blue: 0.251, alpha: 1))
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let titleRect = NSRect(x: 0, y: 13, width: bounds.width, height: 18)
+        ("Trackpad Matcher" as NSString).draw(with: titleRect, options: [.usesLineFragmentOrigin], attributes: [
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+            .foregroundColor: MatcherColors.muted,
+            .paragraphStyle: paragraph
+        ])
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+
+        if NSPoint(x: 20, y: 21).distance(to: point) <= 8 {
+            window?.close()
+        } else if NSPoint(x: 40, y: 21).distance(to: point) <= 8 {
+            window?.miniaturize(nil)
+        } else if NSPoint(x: 60, y: 21).distance(to: point) <= 8 {
+            window?.zoom(nil)
+        } else {
+            window?.performDrag(with: event)
+        }
+    }
+
+    private func drawLight(center: NSPoint, color: NSColor) {
+        let rect = NSRect(x: center.x - 6, y: center.y - 6, width: 12, height: 12)
+        color.setFill()
+        NSBezierPath(ovalIn: rect).fill()
+        NSColor(calibratedWhite: 0, alpha: 0.18).setStroke()
+        NSBezierPath(ovalIn: rect).stroke()
+    }
+}
+
+private extension NSPoint {
+    func distance(to other: NSPoint) -> CGFloat {
+        hypot(x - other.x, y - other.y)
+    }
+}
+
+private final class RowsPanelView: NSView {
+    override var isFlipped: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let panelPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 11, yRadius: 11)
+        MatcherColors.panel.setFill()
+        panelPath.fill()
+        MatcherColors.hairline.setStroke()
+        panelPath.lineWidth = 1
+        panelPath.stroke()
+
+        let separator = NSBezierPath()
+        separator.move(to: NSPoint(x: 0, y: bounds.midY))
+        separator.line(to: NSPoint(x: bounds.width, y: bounds.midY))
+        separator.lineWidth = 1
+        MatcherColors.hairline.setStroke()
+        separator.stroke()
+    }
+}
+
+private final class ToggleSwitch: NSControl {
+    var isOn = false
+    private var knobProgress: CGFloat = 0 {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    private var animationTimer: Timer?
+    private var animationStart = CACurrentMediaTime()
+    private var animationFrom: CGFloat = 0
+    private var animationTo: CGFloat = 0
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
+    func setOn(_ on: Bool, animated: Bool) {
+        isOn = on
+        animate(to: on ? 1 : 0, duration: animated ? 0.25 : 0)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let trackRect = bounds.insetBy(dx: 0, dy: 0)
+        let trackColor = blend(from: MatcherColors.hairline, to: MatcherColors.accent, progress: knobProgress)
+        trackColor.setFill()
+        NSBezierPath(roundedRect: trackRect, xRadius: trackRect.height / 2, yRadius: trackRect.height / 2).fill()
+
+        let knobSize: CGFloat = 22
+        let knobX = 2 + (bounds.width - knobSize - 4) * knobProgress
+        let knobRect = NSRect(x: knobX, y: 2, width: knobSize, height: knobSize)
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: knobRect).fill()
+        NSColor(calibratedWhite: 0, alpha: 0.18).setStroke()
+        NSBezierPath(ovalIn: knobRect).stroke()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        setOn(!isOn, animated: true)
+        sendAction(action, to: target)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.charactersIgnoringModifiers == " " || event.keyCode == 36 {
+            setOn(!isOn, animated: true)
+            sendAction(action, to: target)
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    private func animate(to target: CGFloat, duration: TimeInterval) {
+        animationTimer?.invalidate()
+        guard duration > 0 else {
+            knobProgress = target
+            return
+        }
+
+        animationStart = CACurrentMediaTime()
+        animationFrom = knobProgress
+        animationTo = target
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            let elapsed = CACurrentMediaTime() - self.animationStart
+            let t = min(max(elapsed / duration, 0), 1)
+            let eased = self.ease(t)
+            self.knobProgress = self.animationFrom + (self.animationTo - self.animationFrom) * eased
+
+            if t >= 1 {
+                timer.invalidate()
+                self.animationTimer = nil
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        animationTimer = timer
+    }
+
+    private func ease(_ t: CGFloat) -> CGFloat {
+        t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+    }
+
+    private func blend(from: NSColor, to: NSColor, progress: CGFloat) -> NSColor {
+        let fromRGB = from.usingColorSpace(.deviceRGB) ?? from
+        let toRGB = to.usingColorSpace(.deviceRGB) ?? to
+        return NSColor(
+            calibratedRed: fromRGB.redComponent + (toRGB.redComponent - fromRGB.redComponent) * progress,
+            green: fromRGB.greenComponent + (toRGB.greenComponent - fromRGB.greenComponent) * progress,
+            blue: fromRGB.blueComponent + (toRGB.blueComponent - fromRGB.blueComponent) * progress,
+            alpha: fromRGB.alphaComponent + (toRGB.alphaComponent - fromRGB.alphaComponent) * progress
+        )
+    }
+}
+
 private final class DevicesPreviewView: NSView {
     var devices: [DeviceSurface] = [] {
         didSet {
@@ -23,7 +286,7 @@ private final class DevicesPreviewView: NSView {
     }
     var matchActiveAreaEnabled = false {
         didSet {
-            needsDisplay = true
+            animateReduction(to: matchActiveAreaEnabled ? 1 : 0)
         }
     }
     var touchIndicators: [Int: [TouchIndicator]] = [:] {
@@ -36,6 +299,15 @@ private final class DevicesPreviewView: NSView {
             needsDisplay = true
         }
     }
+    private var reductionProgress: CGFloat = 0 {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    private var reductionTimer: Timer?
+    private var reductionStart = CACurrentMediaTime()
+    private var reductionFrom: CGFloat = 0
+    private var reductionTo: CGFloat = 0
 
     override var isFlipped: Bool {
         true
@@ -44,45 +316,275 @@ private final class DevicesPreviewView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        NSColor.windowBackgroundColor.setFill()
-        bounds.fill()
+        drawPrototypeStage()
+    }
 
-        let available = bounds.insetBy(dx: 14, dy: 12)
-        guard !devices.isEmpty else {
-            drawPlaceholder(in: available)
+    private func drawPrototypeStage() {
+        let magicRect = NSRect(
+            x: bounds.midX - 107,
+            y: bounds.midY - 74,
+            width: 214,
+            height: 148
+        )
+        let magicPath = roundedPath(in: magicRect, radius: 16)
+        let activeRect = interpolatedActiveRect(in: magicRect)
+        let activePath = roundedPath(
+            in: activeRect,
+            topRadius: interpolate(from: 11, to: 16),
+            bottomRadius: interpolate(from: 11, to: 10)
+        )
+
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowBlurRadius = 10
+        shadow.shadowOffset = NSSize(width: 0, height: -2)
+        shadow.shadowColor = NSColor(calibratedWhite: 0, alpha: 0.06)
+        shadow.set()
+        MatcherColors.padFill.setFill()
+        magicPath.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        MatcherColors.padEdge.setStroke()
+        magicPath.lineWidth = 1
+        magicPath.stroke()
+
+        drawDisabledHatching(in: magicRect, clippedBy: magicPath)
+        drawReferenceOutline(in: activeRect)
+
+        MatcherColors.accent.withAlphaComponent(interpolate(from: 0.16, to: 0.20)).setFill()
+        activePath.fill()
+        MatcherColors.accent.setStroke()
+        activePath.lineWidth = 1.5
+        activePath.stroke()
+
+        drawActiveAreaLabel(in: activeRect)
+        drawMagicLabel(below: magicRect)
+
+        if let target = targetDevice() {
+            drawStageTouchIndicators(deviceIndex: target.index, in: magicRect, activeRect: reductionProgress > 0.01 ? activeRect : nil)
+        }
+    }
+
+    private func targetDevice() -> DeviceSurface? {
+        let reference = activeAreaReferenceDevice()
+        return devices
+            .filter { $0.index != reference?.index }
+            .max { left, right in
+                let leftScore = (left.builtIn ? 0 : 1_000_000) + left.widthCm * left.heightCm
+                let rightScore = (right.builtIn ? 0 : 1_000_000) + right.widthCm * right.heightCm
+                return leftScore < rightScore
+            }
+            ?? devices.first
+    }
+
+    private func interpolatedActiveRect(in magicRect: NSRect) -> NSRect {
+        let off = magicRect.insetBy(dx: 6, dy: 6)
+        let on = NSRect(
+            x: magicRect.midX - 59,
+            y: magicRect.minY - 1,
+            width: 118,
+            height: 92
+        )
+
+        return NSRect(
+            x: interpolate(from: off.minX, to: on.minX),
+            y: interpolate(from: off.minY, to: on.minY),
+            width: interpolate(from: off.width, to: on.width),
+            height: interpolate(from: off.height, to: on.height)
+        )
+    }
+
+    private func drawDisabledHatching(in rect: NSRect, clippedBy clipPath: NSBezierPath) {
+        guard reductionProgress > 0.001 else {
             return
         }
 
-        let gap = devices.count > 1
-            ? min(CGFloat(14), available.height / CGFloat(devices.count * 5))
-            : 0
-        let totalGap = gap * CGFloat(max(devices.count - 1, 0))
-        let maxWidthCm = devices
-            .map { max($0.widthCm, 0.01) }
-            .max() ?? 1
-        let totalHeightCm = devices.reduce(0.0) { total, device in
-            total + max(device.heightCm, 0.01)
-        }
-        let widthScale = available.width / CGFloat(maxWidthCm)
-        let heightScale = max(available.height - totalGap, 1) / CGFloat(totalHeightCm)
-        let scale = max(min(widthScale, heightScale), 0.01)
-        let scaledHeight = CGFloat(totalHeightCm) * scale + totalGap
-        var y = available.minY + max((available.height - scaledHeight) / 2.0, 0)
-        let referenceDevice = activeAreaReferenceDevice()
+        NSGraphicsContext.saveGraphicsState()
+        clipPath.addClip()
 
-        for device in devices.sorted(by: { $0.index < $1.index }) {
-            let rectWidth = CGFloat(max(device.widthCm, 0.01)) * scale
-            let rectHeight = CGFloat(max(device.heightCm, 0.01)) * scale
-            let rect = NSRect(
-                x: available.midX - rectWidth / 2.0,
-                y: y,
-                width: rectWidth,
-                height: rectHeight
+        MatcherColors.padOff.withAlphaComponent(0.60 * reductionProgress).setFill()
+        rect.fill()
+
+        let hatchPath = NSBezierPath()
+        var x = rect.minX - rect.height
+        while x < rect.maxX + rect.height {
+            hatchPath.move(to: NSPoint(x: x, y: rect.maxY))
+            hatchPath.line(to: NSPoint(x: x + rect.height, y: rect.minY))
+            x += 10
+        }
+
+        MatcherColors.padOff.withAlphaComponent(0.95 * reductionProgress).setStroke()
+        hatchPath.lineWidth = 1.2
+        hatchPath.stroke()
+
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawReferenceOutline(in rect: NSRect) {
+        guard reductionProgress > 0.001 else {
+            return
+        }
+
+        let refPath = roundedPath(in: rect, topRadius: 16, bottomRadius: 10)
+        let dash: [CGFloat] = [4, 4]
+        refPath.setLineDash(dash, count: dash.count, phase: 0)
+        MatcherColors.muted.withAlphaComponent(0.46 * reductionProgress).setStroke()
+        refPath.lineWidth = 1.2
+        refPath.stroke()
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        ("= Integrato · ~130 × 100 mm" as NSString).draw(
+            with: NSRect(x: rect.minX + 4, y: rect.maxY - 17, width: rect.width - 8, height: 11),
+            options: [.usesLineFragmentOrigin],
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .regular),
+                .foregroundColor: MatcherColors.muted.withAlphaComponent(0.90 * reductionProgress),
+                .paragraphStyle: paragraph
+            ]
+        )
+    }
+
+    private func drawActiveAreaLabel(in rect: NSRect) {
+        let titleParagraph = NSMutableParagraphStyle()
+        titleParagraph.alignment = .center
+        let titleAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: MatcherColors.accent,
+            .paragraphStyle: titleParagraph
+        ]
+        let subAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .regular),
+            .foregroundColor: MatcherColors.accent.withAlphaComponent(0.75),
+            .paragraphStyle: titleParagraph
+        ]
+        let titleRect = NSRect(x: rect.minX + 8, y: rect.midY - 17, width: rect.width - 16, height: 15)
+        let subtitle = reductionProgress > 0.5 ? "come l’integrato" : "tutto il trackpad"
+        let subtitleRect = NSRect(x: rect.minX + 8, y: rect.midY - 1, width: rect.width - 16, height: 13)
+
+        ("Area attiva" as NSString).draw(with: titleRect, options: [.usesLineFragmentOrigin], attributes: titleAttributes)
+        (subtitle as NSString).draw(with: subtitleRect, options: [.usesLineFragmentOrigin], attributes: subAttributes)
+    }
+
+    private func drawMagicLabel(below rect: NSRect) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let label = NSMutableAttributedString(
+            string: "Magic Trackpad",
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .semibold),
+                .foregroundColor: MatcherColors.muted
+            ]
+        )
+        label.append(NSAttributedString(
+            string: " · ~160 × 115 mm",
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: MatcherColors.faint
+            ]
+        ))
+        label.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: label.length))
+        label.draw(with: NSRect(x: rect.minX - 40, y: rect.maxY + 8, width: rect.width + 80, height: 14))
+    }
+
+    private func drawStageTouchIndicators(deviceIndex: Int, in rect: NSRect, activeRect: NSRect?) {
+        guard let touches = touchIndicators[deviceIndex] else {
+            return
+        }
+
+        for touch in touches {
+            let point = NSPoint(
+                x: rect.minX + CGFloat(clampUnit(touch.x)) * rect.width,
+                y: rect.minY + CGFloat(1.0 - clampUnit(touch.y)) * rect.height
             )
-
-            drawDevice(device, in: rect, reference: referenceDevice)
-            y += rectHeight + gap
+            let disabled = activeRect.map { !$0.contains(point) } ?? false
+            let color: NSColor = disabled ? .systemYellow : (touchPressed ? .systemGreen : MatcherColors.accent)
+            drawTouchDot(at: point, color: color)
         }
+    }
+
+    private func drawTouchDot(at point: NSPoint, color: NSColor) {
+        let outer = NSRect(x: point.x - 6, y: point.y - 6, width: 12, height: 12)
+        let inner = NSRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)
+        NSColor.white.withAlphaComponent(0.95).setFill()
+        NSBezierPath(ovalIn: outer).fill()
+        color.setFill()
+        NSBezierPath(ovalIn: inner).fill()
+        color.withAlphaComponent(0.42).setStroke()
+        NSBezierPath(ovalIn: outer).stroke()
+    }
+
+    private func animateReduction(to target: CGFloat) {
+        reductionTimer?.invalidate()
+        reductionStart = CACurrentMediaTime()
+        reductionFrom = reductionProgress
+        reductionTo = target
+
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            let elapsed = CACurrentMediaTime() - self.reductionStart
+            let t = min(max(elapsed / 0.6, 0), 1)
+            let eased = self.ease(t)
+            self.reductionProgress = self.reductionFrom + (self.reductionTo - self.reductionFrom) * eased
+
+            if t >= 1 {
+                timer.invalidate()
+                self.reductionTimer = nil
+            }
+        }
+
+        RunLoop.main.add(timer, forMode: .common)
+        reductionTimer = timer
+    }
+
+    private func interpolate(from: CGFloat, to: CGFloat) -> CGFloat {
+        from + (to - from) * reductionProgress
+    }
+
+    private func ease(_ t: CGFloat) -> CGFloat {
+        t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+    }
+
+    private func roundedPath(in rect: NSRect, radius: CGFloat) -> NSBezierPath {
+        roundedPath(in: rect, topRadius: radius, bottomRadius: radius)
+    }
+
+    private func roundedPath(in rect: NSRect, topRadius: CGFloat, bottomRadius: CGFloat) -> NSBezierPath {
+        let topRadius = min(topRadius, rect.width / 2, rect.height / 2)
+        let bottomRadius = min(bottomRadius, rect.width / 2, rect.height / 2)
+        let path = NSBezierPath()
+
+        path.move(to: NSPoint(x: rect.minX + topRadius, y: rect.minY))
+        path.line(to: NSPoint(x: rect.maxX - topRadius, y: rect.minY))
+        path.curve(
+            to: NSPoint(x: rect.maxX, y: rect.minY + topRadius),
+            controlPoint1: NSPoint(x: rect.maxX - topRadius * 0.45, y: rect.minY),
+            controlPoint2: NSPoint(x: rect.maxX, y: rect.minY + topRadius * 0.45)
+        )
+        path.line(to: NSPoint(x: rect.maxX, y: rect.maxY - bottomRadius))
+        path.curve(
+            to: NSPoint(x: rect.maxX - bottomRadius, y: rect.maxY),
+            controlPoint1: NSPoint(x: rect.maxX, y: rect.maxY - bottomRadius * 0.45),
+            controlPoint2: NSPoint(x: rect.maxX - bottomRadius * 0.45, y: rect.maxY)
+        )
+        path.line(to: NSPoint(x: rect.minX + bottomRadius, y: rect.maxY))
+        path.curve(
+            to: NSPoint(x: rect.minX, y: rect.maxY - bottomRadius),
+            controlPoint1: NSPoint(x: rect.minX + bottomRadius * 0.45, y: rect.maxY),
+            controlPoint2: NSPoint(x: rect.minX, y: rect.maxY - bottomRadius * 0.45)
+        )
+        path.line(to: NSPoint(x: rect.minX, y: rect.minY + topRadius))
+        path.curve(
+            to: NSPoint(x: rect.minX + topRadius, y: rect.minY),
+            controlPoint1: NSPoint(x: rect.minX, y: rect.minY + topRadius * 0.45),
+            controlPoint2: NSPoint(x: rect.minX + topRadius * 0.45, y: rect.minY)
+        )
+        path.close()
+        return path
     }
 
     private func drawDevice(_ device: DeviceSurface, in rect: NSRect, reference: DeviceSurface?) {
@@ -318,8 +820,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private weak var startButton: NSButton?
     private weak var stopButton: NSButton?
     private weak var restartButton: NSButton?
-    private weak var startAtLoginCheckbox: NSButton?
-    private weak var matchActiveAreaCheckbox: NSButton?
+    private weak var startAtLoginSwitch: ToggleSwitch?
+    private weak var matchActiveAreaSwitch: ToggleSwitch?
+    private weak var reduceSubtitleLabel: NSTextField?
     private var deviceSurfaces: [DeviceSurface] = []
     private var matchActiveAreaEnabled = false
     private var task: Process?
@@ -381,113 +884,64 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             return
         }
 
-        let frame = NSRect(x: 0, y: 0, width: 420, height: 480)
+        let frame = NSRect(x: 0, y: 0, width: 380, height: 492)
         let window = NSWindow(
             contentRect: frame,
-            styleMask: [.titled, .closable, .miniaturizable],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        window.title = "DeadPad"
+        window.title = "Trackpad Matcher"
         window.delegate = self
         window.isReleasedWhenClosed = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        window.isMovableByWindowBackground = true
         window.center()
         self.window = window
 
-        let content = window.contentView ?? NSView(frame: frame)
+        let content = MatcherRootView(frame: frame)
+        content.wantsLayer = true
+        content.layer?.cornerRadius = 15
+        content.layer?.masksToBounds = true
         window.contentView = content
 
-        let statusLabel = label(
-            frame: NSRect(x: 22, y: 432, width: 360, height: 20),
-            text: "Status: Stopped",
-            fontSize: 13,
-            bold: false
-        )
-        content.addSubview(statusLabel)
-        self.statusLabel = statusLabel
+        let titlebar = MatcherTitlebarView(frame: NSRect(x: 0, y: 0, width: 380, height: 42))
+        content.addSubview(titlebar)
 
-        let previewTitleLabel = label(
-            frame: NSRect(x: 22, y: 364, width: 260, height: 18),
-            text: "Trackpads",
-            fontSize: 13,
-            bold: true
-        )
-        content.addSubview(previewTitleLabel)
+        let explanation = explanatoryLabel(frame: NSRect(x: 22, y: 64, width: 336, height: 40))
+        content.addSubview(explanation)
 
-        let deviceDimensionsLabel = label(
-            frame: NSRect(x: 270, y: 364, width: 128, height: 18),
-            text: "Loading...",
-            fontSize: 12,
-            bold: false
-        )
-        deviceDimensionsLabel.alignment = .right
-        content.addSubview(deviceDimensionsLabel)
-        self.deviceDimensionsLabel = deviceDimensionsLabel
-
-        let devicesPreviewView = DevicesPreviewView(frame: NSRect(x: 22, y: 132, width: 376, height: 220))
+        let devicesPreviewView = DevicesPreviewView(frame: NSRect(x: 22, y: 128, width: 336, height: 196))
         content.addSubview(devicesPreviewView)
         self.devicesPreviewView = devicesPreviewView
 
-        let startAtLoginCheckbox = NSButton(frame: NSRect(x: 20, y: 400, width: 220, height: 24))
-        startAtLoginCheckbox.setButtonType(.switch)
-        startAtLoginCheckbox.title = "Start at login"
-        startAtLoginCheckbox.target = self
-        startAtLoginCheckbox.action = #selector(toggleStartAtLogin(_:))
-        content.addSubview(startAtLoginCheckbox)
-        self.startAtLoginCheckbox = startAtLoginCheckbox
+        let rowsPanel = RowsPanelView(frame: NSRect(x: 22, y: 350, width: 336, height: 121))
+        content.addSubview(rowsPanel)
 
-        let matchActiveAreaCheckbox = NSButton(frame: NSRect(x: 238, y: 400, width: 160, height: 24))
-        matchActiveAreaCheckbox.setButtonType(.switch)
-        matchActiveAreaCheckbox.title = "Match active area"
-        matchActiveAreaCheckbox.target = self
-        matchActiveAreaCheckbox.action = #selector(toggleMatchActiveArea(_:))
-        content.addSubview(matchActiveAreaCheckbox)
-        self.matchActiveAreaCheckbox = matchActiveAreaCheckbox
+        let reduceTitle = rowTitle(frame: NSRect(x: 16, y: 16, width: 220, height: 17), text: "Riduci area attiva")
+        rowsPanel.addSubview(reduceTitle)
+        let reduceSubtitle = rowSubtitle(frame: NSRect(x: 16, y: 36, width: 220, height: 14), text: "l'area combacia con l'integrato")
+        rowsPanel.addSubview(reduceSubtitle)
+        self.reduceSubtitleLabel = reduceSubtitle
 
-        let startButton = button(
-            frame: NSRect(x: 22, y: 62, width: 92, height: 30),
-            title: "Start",
-            action: #selector(startFilter(_:))
-        )
-        content.addSubview(startButton)
-        self.startButton = startButton
+        let reduceSwitch = ToggleSwitch(frame: NSRect(x: 276, y: 17, width: 44, height: 26))
+        reduceSwitch.target = self
+        reduceSwitch.action = #selector(toggleMatchActiveArea(_:))
+        rowsPanel.addSubview(reduceSwitch)
+        self.matchActiveAreaSwitch = reduceSwitch
 
-        let stopButton = button(
-            frame: NSRect(x: 128, y: 62, width: 92, height: 30),
-            title: "Stop",
-            action: #selector(stopFilter(_:))
-        )
-        content.addSubview(stopButton)
-        self.stopButton = stopButton
+        let loginTitle = rowTitle(frame: NSRect(x: 16, y: 76, width: 220, height: 17), text: "Avvia all'accesso")
+        rowsPanel.addSubview(loginTitle)
+        let loginSubtitle = rowSubtitle(frame: NSRect(x: 16, y: 96, width: 220, height: 14), text: "apri Trackpad Matcher al login")
+        rowsPanel.addSubview(loginSubtitle)
 
-        let restartButton = button(
-            frame: NSRect(x: 234, y: 62, width: 104, height: 30),
-            title: "Restart",
-            action: #selector(restartFilter(_:))
-        )
-        content.addSubview(restartButton)
-        self.restartButton = restartButton
-
-        let accessibilityButton = button(
-            frame: NSRect(x: 22, y: 22, width: 154, height: 30),
-            title: "Accessibility",
-            action: #selector(openAccessibilitySettings(_:))
-        )
-        content.addSubview(accessibilityButton)
-
-        let logButton = button(
-            frame: NSRect(x: 190, y: 22, width: 70, height: 30),
-            title: "Log",
-            action: #selector(openLog(_:))
-        )
-        content.addSubview(logButton)
-
-        let quitButton = button(
-            frame: NSRect(x: 274, y: 22, width: 64, height: 30),
-            title: "Quit",
-            action: #selector(quitApp(_:))
-        )
-        content.addSubview(quitButton)
+        let loginSwitch = ToggleSwitch(frame: NSRect(x: 276, y: 78, width: 44, height: 26))
+        loginSwitch.target = self
+        loginSwitch.action = #selector(toggleStartAtLogin(_:))
+        rowsPanel.addSubview(loginSwitch)
+        self.startAtLoginSwitch = loginSwitch
 
         refreshStartAtLoginCheckbox()
         refreshMatchActiveAreaCheckbox()
@@ -518,6 +972,52 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         return button
     }
 
+    private func explanatoryLabel(frame: NSRect) -> NSTextField {
+        let label = NSTextField(frame: frame)
+        label.isEditable = false
+        label.isSelectable = false
+        label.isBezeled = false
+        label.drawsBackground = false
+        label.maximumNumberOfLines = 2
+        label.alignment = .center
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineSpacing = 1.5
+
+        let text = "L'area evidenziata è la zona attiva del Magic Trackpad.\nAttiva Riduci area attiva per portarla alla misura dell'integrato."
+        let attributed = NSMutableAttributedString(string: text, attributes: [
+            .font: NSFont.systemFont(ofSize: 12.5),
+            .foregroundColor: MatcherColors.muted,
+            .paragraphStyle: paragraph
+        ])
+        for phrase in ["zona attiva", "Riduci area attiva"] {
+            let range = (text as NSString).range(of: phrase)
+            if range.location != NSNotFound {
+                attributed.addAttributes([
+                    .font: NSFont.systemFont(ofSize: 12.5, weight: .semibold),
+                    .foregroundColor: MatcherColors.foreground
+                ], range: range)
+            }
+        }
+        label.attributedStringValue = attributed
+        return label
+    }
+
+    private func rowTitle(frame: NSRect, text: String) -> NSTextField {
+        let label = label(frame: frame, text: text, fontSize: 13.5, bold: false)
+        label.font = .systemFont(ofSize: 13.5, weight: .medium)
+        label.textColor = MatcherColors.foreground
+        return label
+    }
+
+    private func rowSubtitle(frame: NSRect, text: String) -> NSTextField {
+        let label = label(frame: frame, text: text, fontSize: 11, bold: false)
+        label.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        label.textColor = MatcherColors.muted
+        return label
+    }
+
     @objc private func showWindow(_ sender: Any?) {
         buildWindow()
         refreshStartAtLoginCheckbox()
@@ -527,6 +1027,10 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         window?.makeKeyAndOrderFront(nil)
         startClickMonitors()
         startTouchStream()
+
+        if !isFilterRunning {
+            startFilter(nil)
+        }
     }
 
     private func refreshDevicePreview() {
@@ -648,15 +1152,21 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     }
 
     private func refreshStartAtLoginCheckbox() {
-        startAtLoginCheckbox?.state = isStartAtLoginEnabled ? .on : .off
+        startAtLoginSwitch?.setOn(isStartAtLoginEnabled, animated: false)
     }
 
     private func refreshMatchActiveAreaCheckbox() {
-        matchActiveAreaCheckbox?.state = matchActiveAreaEnabled ? .on : .off
+        matchActiveAreaSwitch?.setOn(matchActiveAreaEnabled, animated: false)
+        reduceSubtitleLabel?.stringValue = matchActiveAreaEnabled
+            ? "area allineata all’integrato"
+            : "l'area combacia con l'integrato"
     }
 
     @objc private func toggleMatchActiveArea(_ sender: Any?) {
-        matchActiveAreaEnabled = matchActiveAreaCheckbox?.state == .on
+        matchActiveAreaEnabled = matchActiveAreaSwitch?.isOn == true
+        reduceSubtitleLabel?.stringValue = matchActiveAreaEnabled
+            ? "area allineata all’integrato"
+            : "l'area combacia con l'integrato"
 
         if deviceSurfaces.isEmpty {
             refreshDevicePreview()
@@ -664,7 +1174,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             devicesPreviewView?.matchActiveAreaEnabled = matchActiveAreaEnabled
         }
 
-        appendLogLine("DeadPad app \(matchActiveAreaEnabled ? "enabled" : "disabled") Match active area.")
+        appendLogLine("DeadPad app \(matchActiveAreaEnabled ? "enabled" : "disabled") Riduci area attiva.")
 
         if isFilterRunning {
             restartAfterStop = true
@@ -673,7 +1183,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     }
 
     @objc private func toggleStartAtLogin(_ sender: Any?) {
-        let enabled = startAtLoginCheckbox?.state == .on
+        let enabled = startAtLoginSwitch?.isOn == true
 
         do {
             try setStartAtLogin(enabled: enabled)
@@ -1178,7 +1688,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             detail: """
             macOS blocked DeadPad's event tap, so the filter is not running yet.
 
-            In System Settings > Privacy & Security > Accessibility, enable DeadPad or its bundled deadpad helper, then press Start again.
+            In System Settings > Privacy & Security > Accessibility, enable DeadPad or its bundled deadpad helper, then open the DP window again.
 
             If it is already enabled, toggle it off and on once to refresh the permission.
             """
