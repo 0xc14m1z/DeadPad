@@ -1088,6 +1088,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 if self.restartAfterStop {
                     self.restartAfterStop = false
                     self.startFilter(nil)
+                } else if status == 5 {
+                    self.updateAppState(status: "Needs Accessibility")
+                    self.showAccessibilityRequiredAlert()
                 } else {
                     self.updateAppState(status: "Stopped (\(status))")
                 }
@@ -1167,6 +1170,19 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         alert.alertStyle = .warning
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    private func showAccessibilityRequiredAlert() {
+        showError(
+            title: "Accessibility permission required",
+            detail: """
+            macOS blocked DeadPad's event tap, so the filter is not running yet.
+
+            In System Settings > Privacy & Security > Accessibility, enable DeadPad or its bundled deadpad helper, then press Start again.
+
+            If it is already enabled, toggle it off and on once to refresh the permission.
+            """
+        )
     }
 }
 

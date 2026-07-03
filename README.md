@@ -157,6 +157,11 @@ Depending on your macOS privacy settings, you may also need Input Monitoring.
 When using `DeadPad.app`, macOS may show the app or its bundled `deadpad` helper
 in the Accessibility list. Enable whichever entry macOS adds.
 
+If pressing `Start` opens System Settings and the status changes to
+`Needs Accessibility`, enable `DeadPad` or the bundled `deadpad` helper in that
+Accessibility list, then press `Start` again. If the entry was already enabled,
+toggle it off and on once to refresh macOS's permission.
+
 ## Optional login launch
 
 After testing the command manually, you can adapt
