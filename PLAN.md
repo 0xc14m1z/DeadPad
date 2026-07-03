@@ -49,13 +49,11 @@ The current prototype lives in:
 /Users/morgandam/Documents/repos/DeadPad
 ```
 
-It provides a small Swift command-line utility named `deadpad`.
+It builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
 `src/DeadPadCoreTypes.h` remains as an ABI bridge for private multitouch struct
-layout; the runtime logic itself is Swift.
-
-It now also builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
-The app packages `deadpad` as an internal helper. Clicking the `DP` menu bar
-item opens a small control window with start, stop, restart, Start at login,
+layout; the runtime logic itself is Swift. The app packages `deadpad` as an
+internal helper rather than exposing CLI launch scripts. Clicking the `DP` menu
+bar item opens a small control window with start, stop, restart, Start at login,
 Accessibility settings, log-opening, quit actions, and proportional previews of
 the detected physical device surfaces. The window can also match external
 trackpad active areas to the built-in trackpad by showing red disabled-area
@@ -74,23 +72,15 @@ Implemented features:
 - Supports left, right, top, and bottom dead zones.
 - Converts centimeter-based zones into normalized coordinates using the detected
   trackpad size.
-- Provides a monitor mode that prints raw touch coordinates without blocking
-  input.
 - Provides a stream mode for the app preview that reports live touch positions
   without suppressing input.
 - Provides a filtering mode that suppresses mouse movement, clicks, drags, and
   scroll events while a dead-zone touch is active.
-- Supports `--policy all` and `--policy any`.
-- Supports `--invert-x` and `--invert-y` for coordinate calibration.
-- Includes convenience scripts:
-  - `monitor.command`
-  - `run.command`
+- Uses a conservative all-active-touches filtering policy.
 - Builds a menu bar app:
   - `DeadPad.app`
 - Includes an Xcode project:
   - `DeadPad.xcodeproj`
-- Includes an example LaunchAgent plist:
-  - `com.local.deadpad.plist.example`
 
 On the tested machine, the devices were detected as:
 
@@ -117,38 +107,11 @@ Run the menu bar app:
 open DeadPad.app
 ```
 
-List devices:
+Open the `DP` menu bar item, verify that detected trackpads render in the
+window, then press `Start`.
 
-```sh
-./deadpad --list-devices
-```
-
-Monitor touches without blocking:
-
-```sh
-./deadpad --monitor --device 1 --left-cm 2 --right-cm 2
-```
-
-Expected behavior:
-
-- Touching the left edge should show `x` close to `0.000` and `dead=yes`.
-- Touching the center should show `dead=no`.
-- Touching the right edge should show `x` close to `1.000` and `dead=yes`.
-
-If left and right are reversed, rerun with:
-
-```sh
-./deadpad --monitor --device 1 --left-cm 2 --right-cm 2 --invert-x
-```
-
-Run the filter:
-
-```sh
-./deadpad --device 1 --left-cm 2 --right-cm 2 --policy all
-```
-
-The first filtering run may require enabling Accessibility permission for either
-the `deadpad` binary or the Terminal application that launched it:
+The first filtering run may require enabling Accessibility permission for
+`DeadPad` or its bundled `deadpad` helper:
 
 ```text
 System Settings > Privacy & Security > Accessibility
@@ -159,17 +122,10 @@ needed.
 
 ## Policy Behavior
 
-`--policy all` is the default and more conservative mode.
-
-It blocks generated events only when all currently active touches started inside
-a dead zone. This is intended to allow the user to rest a palm on a side area
-while still using a finger in the center of the trackpad.
-
-`--policy any` is stricter.
-
-It blocks generated events whenever any active touch started inside a dead zone.
-This can be useful if accidental input still leaks through, but it may also block
-intentional center gestures while a palm is touching a side zone.
+DeadPad uses a conservative mode: it blocks generated events only when all
+currently active touches started inside a dead zone. This is intended to allow
+the user to rest a palm on a side area while still using a finger in the center
+of the trackpad.
 
 ## Known Limitations
 
@@ -183,16 +139,12 @@ break compatibility.
 The current menu bar app has a fixed active-area matching control. It does not
 yet have a freeform visual editor for drawing arbitrary dead zones.
 
-The current LaunchAgent file is only an example. It should be used after manual
-testing confirms that the filter behaves correctly and permissions are granted.
-
 ## Next Steps
 
 Recommended next improvements:
 
 - Add a calibration UI that lets the user drag dead-zone boundaries visually.
-- Store configuration in a user config file instead of requiring command-line
-  arguments.
+- Store configuration in a user config file.
 - Improve event-source discrimination if possible, so external trackpad events
   can be separated more reliably from mouse or built-in trackpad events.
 - Add structured logging for suppressed event counts and active dead-zone

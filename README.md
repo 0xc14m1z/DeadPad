@@ -1,10 +1,10 @@
 # DeadPad
 
-`deadpad` is a small personal macOS utility written in Swift. It reads raw
+DeadPad is a small personal macOS utility written in Swift. It reads raw
 trackpad touch coordinates through Apple's private
 `MultitouchSupport.framework`, then uses a CoreGraphics HID event tap to
 suppress mouse, drag, click, and scroll events when touches start inside
-configured dead zones. The menu bar app wrapper is also written in Swift.
+configured dead zones.
 
 `src/DeadPadCoreTypes.h` only declares the private multitouch C structs so
 Swift can read the raw callback memory with the correct ABI layout.
@@ -18,18 +18,8 @@ meant for personal use.
 make
 ```
 
-This builds both:
-
-- `deadpad`, the command-line helper.
-- `DeadPad.app`, a small menu bar app that launches the helper in the
-  background.
-
-To build only one target:
-
-```sh
-make cli
-make app
-```
+This builds `DeadPad.app` and places the internal `deadpad` helper inside the
+app bundle.
 
 ## Xcode
 
@@ -51,7 +41,7 @@ Run:
 open DeadPad.app
 ```
 
-The app appears as `DP` in the macOS menu bar. Clicking `DP` opens the DeadPad
+The app appears as `DP` in the macOS menu bar. Click `DP` to open the DeadPad
 window. The window shows proportional rectangles for detected devices using
 their physical surface sizes. Device 0 is rounded, and the other devices appear
 below it in different colors.
@@ -67,22 +57,16 @@ corresponding trackpad preview. The dots turn green only while the trackpad is
 pressed/clicked, and turn yellow when `Match active area` is enabled and the
 touch is inside a disabled area.
 
-It starts the filter automatically with:
-
-```text
---left-cm 2 --right-cm 2 --policy all --verbose
-```
-
 The window contains:
 
-- `Start Filter`
-- `Stop Filter`
-- `Restart Filter`
+- `Start`
+- `Stop`
+- `Restart`
 - `Start at login`
 - `Match active area`
-- `Open Accessibility Settings`
-- `Open Log`
-- `Quit DeadPad`
+- `Accessibility`
+- `Log`
+- `Quit`
 
 Logs are written to:
 
@@ -98,101 +82,25 @@ The `Start at login` checkbox creates or removes this user LaunchAgent:
 
 ## First run
 
-List detected multitouch devices:
+Open `DeadPad.app`, click the `DP` menu bar item, and press `Start`.
 
-```sh
-./deadpad --list-devices
-```
-
-On the machine used for this build, the external trackpad was detected as:
-
-```text
-[1] builtIn=no surface=15.60cm x 11.04cm
-```
-
-So a `2cm` dead zone on each side is about `12.8%` of the width.
-
-Monitor coordinates without blocking anything:
-
-```sh
-./deadpad --monitor --left-cm 2 --right-cm 2
-```
-
-Touch the left and right edges of the trackpad. The log should show `x` near
-`0.000` on the left and near `1.000` on the right. If it is reversed, add
-`--invert-x`.
-
-Run the filter:
-
-```sh
-./deadpad --left-cm 2 --right-cm 2 --policy all
-```
-
-Or double-click/run:
-
-```sh
-./monitor.command
-./run.command
-```
-
-If the side palms still trigger movement/clicks while you type, try the stricter
-policy:
-
-```sh
-./deadpad --left-cm 2 --right-cm 2 --policy any
-```
-
-Stop with `Ctrl-C`.
+On first launch, macOS may ask for Accessibility permission. The filter starts
+only after the permission is granted and `Start` is pressed again.
 
 ## Permissions
 
 The first filtering run requires Accessibility permission. macOS may show a
-prompt. If the event tap cannot be created, enable either `deadpad` or the
-Terminal app used to launch it in:
+prompt. If the event tap cannot be created, enable `DeadPad` or its bundled
+`deadpad` helper in:
 
 System Settings > Privacy & Security > Accessibility
 
 Depending on your macOS privacy settings, you may also need Input Monitoring.
 
-When using `DeadPad.app`, macOS may show the app or its bundled `deadpad` helper
-in the Accessibility list. Enable whichever entry macOS adds.
-
 If pressing `Start` opens System Settings and the status changes to
 `Needs Accessibility`, enable `DeadPad` or the bundled `deadpad` helper in that
 Accessibility list, then press `Start` again. If the entry was already enabled,
 toggle it off and on once to refresh macOS's permission.
-
-## Optional login launch
-
-After testing the command manually, you can adapt
-`com.local.deadpad.plist.example` as a LaunchAgent. The included example already
-points at this folder and uses `--left-cm 2 --right-cm 2 --policy all`.
-
-Manual permission testing first is strongly recommended, because background
-launches cannot guide you through macOS privacy prompts as clearly as Terminal
-can.
-
-## Options
-
-```text
---list-devices              Print multitouch devices and exit.
---monitor                   Print touches and decisions; do not suppress events.
---stream-touches            Stream touch points for the app preview.
---device INDEX              Use a specific device from --list-devices.
---left N                    Left dead zone as normalized width.
---right N                   Right dead zone as normalized width.
---top N                     Top dead zone as normalized height.
---bottom N                  Bottom dead zone as normalized height.
---left-cm CM                Left dead zone in centimeters.
---right-cm CM               Right dead zone in centimeters.
---top-cm CM                 Top dead zone in centimeters.
---bottom-cm CM              Bottom dead zone in centimeters.
---policy all|any            all allows a center touch to keep working; any is stricter.
---grace-ms MS               Keep blocking briefly after a dead-zone frame.
---invert-x                  Flip left/right calibration.
---invert-y                  Flip top/bottom calibration.
---verbose                   Print block stats once per second.
-```
 
 ## Important limitation
 
@@ -200,14 +108,9 @@ macOS does not expose a public API to remove only one finger from the system
 trackpad recognizer. This tool blocks the resulting pointer/scroll/click events
 when the raw touch frame says they likely came from a dead-zone contact.
 
-That means:
-
-- `--policy all` blocks only when all active touches started in dead zones. This
-  is usually better if you rest a palm on the side and use a finger in the
-  center.
-- `--policy any` blocks when any active touch started in a dead zone. This is
-  more aggressive and can block intentional center use while a palm is touching
-  a side zone.
+DeadPad currently uses a conservative policy: it blocks generated events only
+when all active touches started in dead zones. This is usually better if you
+rest a palm on the side and use a finger in the center.
 
 For a fully per-finger filter, the next step would be a lower-level HID/DriverKit
 filter, which is much heavier.
