@@ -21,10 +21,6 @@ private enum MatcherColors {
         light: NSColor(calibratedRed: 0.985, green: 0.987, blue: 0.992, alpha: 1),
         dark: NSColor(calibratedRed: 0.140, green: 0.146, blue: 0.160, alpha: 1)
     )
-    static let titlebar = dynamic(
-        light: NSColor(calibratedRed: 0.960, green: 0.965, blue: 0.975, alpha: 0.86),
-        dark: NSColor(calibratedRed: 0.170, green: 0.178, blue: 0.194, alpha: 0.82)
-    )
     static let panel = dynamic(
         light: .white,
         dark: NSColor(calibratedRed: 0.165, green: 0.170, blue: 0.186, alpha: 1)
@@ -82,73 +78,8 @@ private final class MatcherRootView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 15, yRadius: 15)
         MatcherColors.window.setFill()
-        path.fill()
-        NSColor(calibratedWhite: 0, alpha: 0.16).setStroke()
-        path.lineWidth = 1
-        path.stroke()
-    }
-}
-
-private final class MatcherTitlebarView: NSView {
-    override var isFlipped: Bool {
-        true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-
-        MatcherColors.titlebar.setFill()
         bounds.fill()
-
-        MatcherColors.hairline.setStroke()
-        let line = NSBezierPath()
-        line.move(to: NSPoint(x: bounds.minX, y: bounds.maxY - 0.5))
-        line.line(to: NSPoint(x: bounds.maxX, y: bounds.maxY - 0.5))
-        line.lineWidth = 1
-        line.stroke()
-
-        drawLight(center: NSPoint(x: 20, y: 21), color: NSColor(calibratedRed: 1.000, green: 0.372, blue: 0.342, alpha: 1))
-        drawLight(center: NSPoint(x: 40, y: 21), color: NSColor(calibratedRed: 0.996, green: 0.737, blue: 0.180, alpha: 1))
-        drawLight(center: NSPoint(x: 60, y: 21), color: NSColor(calibratedRed: 0.157, green: 0.784, blue: 0.251, alpha: 1))
-
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        let titleRect = NSRect(x: 0, y: 13, width: bounds.width, height: 18)
-        ("Trackpad Matcher" as NSString).draw(with: titleRect, options: [.usesLineFragmentOrigin], attributes: [
-            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-            .foregroundColor: MatcherColors.muted,
-            .paragraphStyle: paragraph
-        ])
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-
-        if NSPoint(x: 20, y: 21).distance(to: point) <= 8 {
-            window?.close()
-        } else if NSPoint(x: 40, y: 21).distance(to: point) <= 8 {
-            window?.miniaturize(nil)
-        } else if NSPoint(x: 60, y: 21).distance(to: point) <= 8 {
-            window?.zoom(nil)
-        } else {
-            window?.performDrag(with: event)
-        }
-    }
-
-    private func drawLight(center: NSPoint, color: NSColor) {
-        let rect = NSRect(x: center.x - 6, y: center.y - 6, width: 12, height: 12)
-        color.setFill()
-        NSBezierPath(ovalIn: rect).fill()
-        NSColor(calibratedWhite: 0, alpha: 0.18).setStroke()
-        NSBezierPath(ovalIn: rect).stroke()
-    }
-}
-
-private extension NSPoint {
-    func distance(to other: NSPoint) -> CGFloat {
-        hypot(x - other.x, y - other.y)
     }
 }
 
@@ -884,40 +815,30 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             return
         }
 
-        let frame = NSRect(x: 0, y: 0, width: 380, height: 492)
+        let frame = NSRect(x: 0, y: 0, width: 380, height: 450)
         let window = NSWindow(
             contentRect: frame,
-            styleMask: [.borderless],
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Trackpad Matcher"
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = true
-        window.isMovableByWindowBackground = true
         window.center()
         self.window = window
 
         let content = MatcherRootView(frame: frame)
-        content.wantsLayer = true
-        content.layer?.cornerRadius = 15
-        content.layer?.masksToBounds = true
         window.contentView = content
 
-        let titlebar = MatcherTitlebarView(frame: NSRect(x: 0, y: 0, width: 380, height: 42))
-        content.addSubview(titlebar)
-
-        let explanation = explanatoryLabel(frame: NSRect(x: 22, y: 64, width: 336, height: 40))
+        let explanation = explanatoryLabel(frame: NSRect(x: 22, y: 22, width: 336, height: 40))
         content.addSubview(explanation)
 
-        let devicesPreviewView = DevicesPreviewView(frame: NSRect(x: 22, y: 128, width: 336, height: 196))
+        let devicesPreviewView = DevicesPreviewView(frame: NSRect(x: 22, y: 86, width: 336, height: 196))
         content.addSubview(devicesPreviewView)
         self.devicesPreviewView = devicesPreviewView
 
-        let rowsPanel = RowsPanelView(frame: NSRect(x: 22, y: 350, width: 336, height: 121))
+        let rowsPanel = RowsPanelView(frame: NSRect(x: 22, y: 308, width: 336, height: 121))
         content.addSubview(rowsPanel)
 
         let reduceTitle = rowTitle(frame: NSRect(x: 16, y: 16, width: 220, height: 17), text: "Riduci area attiva")

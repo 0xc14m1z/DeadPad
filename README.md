@@ -42,8 +42,9 @@ open DeadPad.app
 ```
 
 The app appears as `DP` in the macOS menu bar. Click `DP` to open the DeadPad
-window. The window matches the Trackpad Matcher prototype: a custom title bar,
-a centered Magic Trackpad stage, and two animated switch rows.
+window. The window uses the native macOS title bar and matches the Trackpad
+Matcher prototype content: a centered Magic Trackpad stage and two animated
+switch rows.
 
 The `Riduci area attiva` switch uses the built-in trackpad as the reference
 surface when enabled. The Magic Trackpad stage animates the blue active area down

@@ -53,7 +53,7 @@ It builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
 `src/DeadPadCoreTypes.h` remains as an ABI bridge for private multitouch struct
 layout; the runtime logic itself is Swift. The app packages `deadpad` as an
 internal helper rather than exposing CLI launch scripts. Clicking the `DP` menu
-bar item opens a Trackpad Matcher-style window with a custom title bar, a
+bar item opens a Trackpad Matcher-style window with a native macOS title bar, a
 centered Magic Trackpad stage, and two animated switch rows. The window can
 match the Magic Trackpad active area to the built-in trackpad by animating the
 blue active area, fading in disabled-area hatching, and passing the corresponding
