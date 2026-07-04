@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A00000000000000000000010"
-               BuildableName = "DeadPad.app"
+               BuildableName = "Deadpad.app"
                BlueprintName = "DeadPad"
                ReferencedContainer = "container:DeadPad.xcodeproj">
             </BuildableReference>
@@ -43,7 +43,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A00000000000000000000010"
-            BuildableName = "DeadPad.app"
+            BuildableName = "Deadpad.app"
             BlueprintName = "DeadPad"
             ReferencedContainer = "container:DeadPad.xcodeproj">
          </BuildableReference>
@@ -60,7 +60,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A00000000000000000000010"
-            BuildableName = "DeadPad.app"
+            BuildableName = "Deadpad.app"
             BlueprintName = "DeadPad"
             ReferencedContainer = "container:DeadPad.xcodeproj">
          </BuildableReference>

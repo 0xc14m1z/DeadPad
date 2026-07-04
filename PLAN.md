@@ -1,4 +1,4 @@
-# DeadPad Plan
+# Deadpad Plan
 
 ## Problem
 
@@ -49,15 +49,15 @@ The current prototype lives in:
 /Users/morgandam/Documents/repos/DeadPad
 ```
 
-It builds a lightweight Swift macOS menu bar app named `DeadPad.app`.
+It builds a lightweight Swift macOS menu bar app named `Deadpad.app`.
 `src/DeadPadCoreTypes.h` remains as an ABI bridge for private multitouch struct
 layout; the runtime logic itself is Swift. The app packages `deadpad` as an
 internal helper rather than exposing CLI launch scripts. Clicking the `DP` menu
-bar item opens a Trackpad Matcher-style window with a native macOS title bar, a
-centered Magic Trackpad stage, and two animated switch rows. The window can
+bar item opens a Deadpad popover with a centered Magic Trackpad stage and two
+animated switch rows. The popover can
 match the Magic Trackpad active area to the built-in trackpad by animating the
 blue active area, fading in disabled-area hatching, and passing the corresponding
-centimeter dead zones to the helper. When the window is open, live touches are
+centimeter dead zones to the helper. When the popover is open, live touches are
 rendered as moving dots on the stage.
 
 Implemented features:
@@ -77,7 +77,7 @@ Implemented features:
   scroll events while a dead-zone touch is active.
 - Uses a conservative all-active-touches filtering policy.
 - Builds a menu bar app:
-  - `DeadPad.app`
+  - `Deadpad.app`
 - Includes an Xcode project:
   - `DeadPad.xcodeproj`
 
@@ -103,14 +103,14 @@ make
 Run the menu bar app:
 
 ```sh
-open DeadPad.app
+open Deadpad.app
 ```
 
 Open the `DP` menu bar item, verify that detected trackpads render in the
-window, and enable `Riduci area attiva` to verify the active-area animation.
+popover, and enable `Reduce active area` to verify the active-area animation.
 
 The first filtering run may require enabling Accessibility permission for
-`DeadPad` or its bundled `deadpad` helper:
+`Deadpad` or its bundled `deadpad` helper:
 
 ```text
 System Settings > Privacy & Security > Accessibility
@@ -121,7 +121,7 @@ needed.
 
 ## Policy Behavior
 
-DeadPad uses a conservative mode: it blocks generated events only when all
+Deadpad uses a conservative mode: it blocks generated events only when all
 currently active touches started inside a dead zone. This is intended to allow
 the user to rest a palm on a side area while still using a finger in the center
 of the trackpad.

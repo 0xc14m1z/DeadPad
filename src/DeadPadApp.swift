@@ -365,7 +365,7 @@ private final class DevicesPreviewView: NSView {
 
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
-        ("= Integrato · ~130 × 100 mm" as NSString).draw(
+        ("= Built-in · ~130 × 100 mm" as NSString).draw(
             with: NSRect(x: rect.minX + 4, y: rect.maxY - 17, width: rect.width - 8, height: 11),
             options: [.usesLineFragmentOrigin],
             attributes: [
@@ -390,10 +390,10 @@ private final class DevicesPreviewView: NSView {
             .paragraphStyle: titleParagraph
         ]
         let titleRect = NSRect(x: rect.minX + 8, y: rect.midY - 17, width: rect.width - 16, height: 15)
-        let subtitle = reductionProgress > 0.5 ? "come l’integrato" : "tutto il trackpad"
+        let subtitle = reductionProgress > 0.5 ? "matches built-in" : "full trackpad"
         let subtitleRect = NSRect(x: rect.minX + 8, y: rect.midY - 1, width: rect.width - 16, height: 13)
 
-        ("Area attiva" as NSString).draw(with: titleRect, options: [.usesLineFragmentOrigin], attributes: titleAttributes)
+        ("Active area" as NSString).draw(with: titleRect, options: [.usesLineFragmentOrigin], attributes: titleAttributes)
         (subtitle as NSString).draw(with: subtitleRect, options: [.usesLineFragmentOrigin], attributes: subAttributes)
     }
 
@@ -742,9 +742,9 @@ private final class DevicesPreviewView: NSView {
     }
 }
 
-final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
-    private var window: NSWindow?
+    private var popover: NSPopover?
     private weak var statusLabel: NSTextField?
     private weak var deviceDimensionsLabel: NSTextField?
     private weak var devicesPreviewView: DevicesPreviewView?
@@ -787,7 +787,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     private func prepareLogPath() {
         let logsURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/DeadPad", isDirectory: true)
+            .appendingPathComponent("Library/Logs/Deadpad", isDirectory: true)
 
         try? FileManager.default.createDirectory(
             at: logsURL,
@@ -805,31 +805,18 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private func buildStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem?.button?.title = "DP"
-        statusItem?.button?.toolTip = "DeadPad"
+        statusItem?.button?.toolTip = "Deadpad"
         statusItem?.button?.target = self
-        statusItem?.button?.action = #selector(showWindow(_:))
+        statusItem?.button?.action = #selector(togglePopover(_:))
     }
 
-    private func buildWindow() {
-        if window != nil {
+    private func buildPopover() {
+        if popover != nil {
             return
         }
 
         let frame = NSRect(x: 0, y: 0, width: 380, height: 450)
-        let window = NSWindow(
-            contentRect: frame,
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Trackpad Matcher"
-        window.delegate = self
-        window.isReleasedWhenClosed = false
-        window.center()
-        self.window = window
-
         let content = MatcherRootView(frame: frame)
-        window.contentView = content
 
         let explanation = explanatoryLabel(frame: NSRect(x: 22, y: 22, width: 336, height: 40))
         content.addSubview(explanation)
@@ -841,9 +828,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         let rowsPanel = RowsPanelView(frame: NSRect(x: 22, y: 308, width: 336, height: 121))
         content.addSubview(rowsPanel)
 
-        let reduceTitle = rowTitle(frame: NSRect(x: 16, y: 16, width: 220, height: 17), text: "Riduci area attiva")
+        let reduceTitle = rowTitle(frame: NSRect(x: 16, y: 16, width: 220, height: 17), text: "Reduce active area")
         rowsPanel.addSubview(reduceTitle)
-        let reduceSubtitle = rowSubtitle(frame: NSRect(x: 16, y: 36, width: 220, height: 14), text: "l'area combacia con l'integrato")
+        let reduceSubtitle = rowSubtitle(frame: NSRect(x: 16, y: 36, width: 220, height: 14), text: "match it to the built-in trackpad")
         rowsPanel.addSubview(reduceSubtitle)
         self.reduceSubtitleLabel = reduceSubtitle
 
@@ -853,9 +840,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         rowsPanel.addSubview(reduceSwitch)
         self.matchActiveAreaSwitch = reduceSwitch
 
-        let loginTitle = rowTitle(frame: NSRect(x: 16, y: 76, width: 220, height: 17), text: "Avvia all'accesso")
+        let loginTitle = rowTitle(frame: NSRect(x: 16, y: 76, width: 220, height: 17), text: "Start at login")
         rowsPanel.addSubview(loginTitle)
-        let loginSubtitle = rowSubtitle(frame: NSRect(x: 16, y: 96, width: 220, height: 14), text: "apri Trackpad Matcher al login")
+        let loginSubtitle = rowSubtitle(frame: NSRect(x: 16, y: 96, width: 220, height: 14), text: "open Deadpad when you log in")
         rowsPanel.addSubview(loginSubtitle)
 
         let loginSwitch = ToggleSwitch(frame: NSRect(x: 276, y: 78, width: 44, height: 26))
@@ -866,9 +853,20 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
         refreshStartAtLoginCheckbox()
         refreshMatchActiveAreaCheckbox()
+
+        let controller = NSViewController()
+        controller.view = content
+
+        let popover = NSPopover()
+        popover.contentSize = frame.size
+        popover.behavior = .transient
+        popover.animates = true
+        popover.delegate = self
+        popover.contentViewController = controller
+        self.popover = popover
     }
 
-    func windowWillClose(_ notification: Notification) {
+    func popoverDidClose(_ notification: Notification) {
         stopClickMonitors()
         stopTouchStream()
     }
@@ -906,13 +904,13 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         paragraph.alignment = .center
         paragraph.lineSpacing = 1.5
 
-        let text = "L'area evidenziata è la zona attiva del Magic Trackpad.\nAttiva Riduci area attiva per portarla alla misura dell'integrato."
+        let text = "The highlighted region is the Magic Trackpad active area.\nTurn on Reduce active area to match the built-in trackpad."
         let attributed = NSMutableAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: 12.5),
             .foregroundColor: MatcherColors.muted,
             .paragraphStyle: paragraph
         ])
-        for phrase in ["zona attiva", "Riduci area attiva"] {
+        for phrase in ["active area", "Reduce active area"] {
             let range = (text as NSString).range(of: phrase)
             if range.location != NSNotFound {
                 attributed.addAttributes([
@@ -939,13 +937,22 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         return label
     }
 
-    @objc private func showWindow(_ sender: Any?) {
-        buildWindow()
+    @objc private func togglePopover(_ sender: Any?) {
+        guard let button = statusItem?.button else {
+            return
+        }
+
+        buildPopover()
+
+        if popover?.isShown == true {
+            popover?.performClose(sender)
+            return
+        }
+
         refreshStartAtLoginCheckbox()
         refreshDevicePreview()
         updateAppState(status: isFilterRunning ? "Running" : "Stopped")
-        NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         startClickMonitors()
         startTouchStream()
 
@@ -1079,15 +1086,15 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private func refreshMatchActiveAreaCheckbox() {
         matchActiveAreaSwitch?.setOn(matchActiveAreaEnabled, animated: false)
         reduceSubtitleLabel?.stringValue = matchActiveAreaEnabled
-            ? "area allineata all’integrato"
-            : "l'area combacia con l'integrato"
+            ? "active area matches built-in"
+            : "match it to the built-in trackpad"
     }
 
     @objc private func toggleMatchActiveArea(_ sender: Any?) {
         matchActiveAreaEnabled = matchActiveAreaSwitch?.isOn == true
         reduceSubtitleLabel?.stringValue = matchActiveAreaEnabled
-            ? "area allineata all’integrato"
-            : "l'area combacia con l'integrato"
+            ? "active area matches built-in"
+            : "match it to the built-in trackpad"
 
         if deviceSurfaces.isEmpty {
             refreshDevicePreview()
@@ -1095,7 +1102,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             devicesPreviewView?.matchActiveAreaEnabled = matchActiveAreaEnabled
         }
 
-        appendLogLine("DeadPad app \(matchActiveAreaEnabled ? "enabled" : "disabled") Riduci area attiva.")
+        appendLogLine("Deadpad app \(matchActiveAreaEnabled ? "enabled" : "disabled") Reduce active area.")
 
         if isFilterRunning {
             restartAfterStop = true
@@ -1199,7 +1206,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             pipe.fileHandleForReading.readabilityHandler = nil
             touchStreamLogHandle?.closeFile()
             touchStreamLogHandle = nil
-            appendLogLine("DeadPad app could not start touch stream: \(error.localizedDescription)")
+            appendLogLine("Deadpad app could not start touch stream: \(error.localizedDescription)")
             return
         }
 
@@ -1488,7 +1495,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         guard FileManager.default.isExecutableFile(atPath: helperPath) else {
             updateAppState(status: "Helper missing")
             showError(
-                title: "DeadPad helper not found",
+                title: "Deadpad helper not found",
                 detail: "Expected executable helper at:\n\(helperPath)"
             )
             return
@@ -1537,11 +1544,11 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             logHandle = nil
             task = nil
             updateAppState(status: "Launch failed")
-            showError(title: "Could not start DeadPad", detail: error.localizedDescription)
+            showError(title: "Could not start Deadpad", detail: error.localizedDescription)
             return
         }
 
-        appendLogLine("DeadPad app started helper.")
+        appendLogLine("Deadpad app started helper.")
         updateAppState(status: "Running")
     }
 
@@ -1550,7 +1557,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             return
         }
 
-        appendLogLine("DeadPad app stopping helper.")
+        appendLogLine("Deadpad app stopping helper.")
         task?.terminate()
         updateAppState(status: "Stopping")
     }
@@ -1591,7 +1598,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         startButton?.isEnabled = !running
         stopButton?.isEnabled = running
         restartButton?.isEnabled = running
-        statusItem?.button?.toolTip = "DeadPad: \(status)"
+        statusItem?.button?.toolTip = "Deadpad: \(status)"
     }
 
     private func showError(title: String, detail: String) {
@@ -1607,9 +1614,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         showError(
             title: "Accessibility permission required",
             detail: """
-            macOS blocked DeadPad's event tap, so the filter is not running yet.
+            macOS blocked Deadpad's event tap, so the filter is not running yet.
 
-            In System Settings > Privacy & Security > Accessibility, enable DeadPad or its bundled deadpad helper, then open the DP window again.
+            In System Settings > Privacy & Security > Accessibility, enable Deadpad or its bundled deadpad helper, then open the DP popover again.
 
             If it is already enabled, toggle it off and on once to refresh the permission.
             """

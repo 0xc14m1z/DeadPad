@@ -12,7 +12,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A00000000000000000000020 /* DeadPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeadPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000020 /* Deadpad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deadpad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000030 /* DeadPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeadPadApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000031 /* deadpad.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = deadpad.swift; sourceTree = "<group>"; };
 		A00000000000000000000032 /* DeadPadCoreTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DeadPadCoreTypes.h; sourceTree = "<group>"; };
@@ -51,7 +51,7 @@
 		A00000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000020 /* DeadPad.app */,
+				A00000000000000000000020 /* Deadpad.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -98,8 +98,8 @@
 			dependencies = (
 			);
 			name = DeadPad;
-			productName = DeadPad;
-			productReference = A00000000000000000000020 /* DeadPad.app */;
+			productName = Deadpad;
+			productReference = A00000000000000000000020 /* Deadpad.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -228,7 +228,7 @@
 				INFOPLIST_FILE = app/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.deadpad;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Deadpad;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -243,7 +243,7 @@
 				INFOPLIST_FILE = app/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.deadpad;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Deadpad;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

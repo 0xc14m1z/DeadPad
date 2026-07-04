@@ -6,13 +6,15 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>DeadPad</string>
+  <string>Deadpad</string>
+  <key>CFBundleDisplayName</key>
+  <string>Deadpad</string>
   <key>CFBundleIdentifier</key>
   <string>com.local.deadpad</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>DeadPad</string>
+  <string>Deadpad</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
