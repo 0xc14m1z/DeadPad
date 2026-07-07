@@ -57,6 +57,18 @@ private enum MatcherColors {
         light: NSColor(calibratedRed: 0.860, green: 0.865, blue: 0.880, alpha: 0.62),
         dark: NSColor(calibratedRed: 0.205, green: 0.215, blue: 0.235, alpha: 0.68)
     )
+    static let warningFill = dynamic(
+        light: NSColor(calibratedRed: 1.000, green: 0.900, blue: 0.520, alpha: 0.28),
+        dark: NSColor(calibratedRed: 0.520, green: 0.330, blue: 0.070, alpha: 0.30)
+    )
+    static let warningStroke = dynamic(
+        light: NSColor(calibratedRed: 0.930, green: 0.650, blue: 0.120, alpha: 0.52),
+        dark: NSColor(calibratedRed: 1.000, green: 0.720, blue: 0.220, alpha: 0.44)
+    )
+    static let warningText = dynamic(
+        light: NSColor(calibratedRed: 0.610, green: 0.350, blue: 0.020, alpha: 1),
+        dark: NSColor(calibratedRed: 1.000, green: 0.760, blue: 0.320, alpha: 1)
+    )
 
     private static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
         if #available(macOS 10.14, *) {
@@ -104,6 +116,29 @@ private final class RowsPanelView: NSView {
         separator.lineWidth = 1
         MatcherColors.hairline.setStroke()
         separator.stroke()
+    }
+}
+
+private final class StatusStripView: NSView {
+    var isWarning = false {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let stripPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 9, yRadius: 9)
+        (isWarning ? MatcherColors.warningFill : MatcherColors.panel).setFill()
+        stripPath.fill()
+        (isWarning ? MatcherColors.warningStroke : MatcherColors.hairline).setStroke()
+        stripPath.lineWidth = 1
+        stripPath.stroke()
     }
 }
 
@@ -748,6 +783,9 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
     private weak var statusLabel: NSTextField?
     private weak var deviceDimensionsLabel: NSTextField?
     private weak var devicesPreviewView: DevicesPreviewView?
+    private weak var statusStripView: StatusStripView?
+    private weak var accessibilitySettingsButton: NSButton?
+    private weak var accessibilityRetryButton: NSButton?
     private weak var startButton: NSButton?
     private weak var stopButton: NSButton?
     private weak var restartButton: NSButton?
@@ -769,6 +807,8 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
     private var touchPressed = false
     private var logPath = ""
     private var restartAfterStop = false
+    private var currentFilterStatus = "Stopped"
+    private var accessibilityPermissionBlocked = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -815,7 +855,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
             return
         }
 
-        let frame = NSRect(x: 0, y: 0, width: 380, height: 450)
+        let frame = NSRect(x: 0, y: 0, width: 380, height: 486)
         let content = MatcherRootView(frame: frame)
 
         let explanation = explanatoryLabel(frame: NSRect(x: 22, y: 22, width: 336, height: 40))
@@ -851,8 +891,29 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
         rowsPanel.addSubview(loginSwitch)
         self.startAtLoginSwitch = loginSwitch
 
+        let statusStrip = StatusStripView(frame: NSRect(x: 22, y: 443, width: 336, height: 28))
+        content.addSubview(statusStrip)
+        self.statusStripView = statusStrip
+
+        let statusLabel = label(frame: NSRect(x: 12, y: 6, width: 174, height: 16), text: "Status: Stopped", fontSize: 11.5, bold: false)
+        statusLabel.font = .systemFont(ofSize: 11.5, weight: .medium)
+        statusLabel.textColor = MatcherColors.muted
+        statusStrip.addSubview(statusLabel)
+        self.statusLabel = statusLabel
+
+        let settingsButton = statusButton(frame: NSRect(x: 202, y: 4, width: 72, height: 20), title: "Settings", action: #selector(openAccessibilitySettings(_:)))
+        settingsButton.toolTip = "Open Accessibility Settings"
+        statusStrip.addSubview(settingsButton)
+        self.accessibilitySettingsButton = settingsButton
+
+        let retryButton = statusButton(frame: NSRect(x: 280, y: 4, width: 44, height: 20), title: "Retry", action: #selector(retryFilterAfterAccessibilityChange(_:)))
+        retryButton.toolTip = "Try starting Deadpad again"
+        statusStrip.addSubview(retryButton)
+        self.accessibilityRetryButton = retryButton
+
         refreshStartAtLoginCheckbox()
         refreshMatchActiveAreaCheckbox()
+        updateAppState(status: currentFilterStatus)
 
         let controller = NSViewController()
         controller.view = content
@@ -888,6 +949,13 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
         button.title = title
         button.target = self
         button.action = action
+        return button
+    }
+
+    private func statusButton(frame: NSRect, title: String, action: Selector) -> NSButton {
+        let button = button(frame: frame, title: title, action: action)
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: 10.5, weight: .medium)
         return button
     }
 
@@ -951,12 +1019,12 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
 
         refreshStartAtLoginCheckbox()
         refreshDevicePreview()
-        updateAppState(status: isFilterRunning ? "Running" : "Stopped")
+        updateAppState(status: isFilterRunning ? "Running" : currentFilterStatus)
         popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         startClickMonitors()
         startTouchStream()
 
-        if !isFilterRunning {
+        if !isFilterRunning && !accessibilityPermissionBlocked {
             startFilter(nil)
         }
     }
@@ -1493,7 +1561,7 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
 
         let helperPath = self.helperPath
         guard FileManager.default.isExecutableFile(atPath: helperPath) else {
-            updateAppState(status: "Helper missing")
+            updateAppState(status: "Helper missing", accessibilityBlocked: false)
             showError(
                 title: "Deadpad helper not found",
                 detail: "Expected executable helper at:\n\(helperPath)"
@@ -1527,10 +1595,10 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
                     self.restartAfterStop = false
                     self.startFilter(nil)
                 } else if status == 5 {
-                    self.updateAppState(status: "Needs Accessibility")
-                    self.showAccessibilityRequiredAlert()
+                    self.appendLogLine("Deadpad helper needs Accessibility permission.")
+                    self.updateAppState(status: "Needs Accessibility", accessibilityBlocked: true)
                 } else {
-                    self.updateAppState(status: "Stopped (\(status))")
+                    self.updateAppState(status: "Stopped (\(status))", accessibilityBlocked: false)
                 }
             }
         }
@@ -1543,13 +1611,13 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
             logHandle?.closeFile()
             logHandle = nil
             task = nil
-            updateAppState(status: "Launch failed")
+            updateAppState(status: "Launch failed", accessibilityBlocked: false)
             showError(title: "Could not start Deadpad", detail: error.localizedDescription)
             return
         }
 
         appendLogLine("Deadpad app started helper.")
-        updateAppState(status: "Running")
+        updateAppState(status: "Running", accessibilityBlocked: false)
     }
 
     @objc private func stopFilter(_ sender: Any?) {
@@ -1585,20 +1653,39 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
         }
     }
 
+    @objc private func retryFilterAfterAccessibilityChange(_ sender: Any?) {
+        if isFilterRunning {
+            return
+        }
+
+        updateAppState(status: "Retrying", accessibilityBlocked: false)
+        startFilter(nil)
+    }
+
     @objc private func openLog(_ sender: Any?) {
         if !logPath.isEmpty {
             NSWorkspace.shared.open(URL(fileURLWithPath: logPath))
         }
     }
 
-    private func updateAppState(status: String) {
-        let running = isFilterRunning
+    private func updateAppState(status: String, accessibilityBlocked: Bool? = nil) {
+        currentFilterStatus = status
+        if let accessibilityBlocked {
+            accessibilityPermissionBlocked = accessibilityBlocked
+        }
 
-        statusLabel?.stringValue = "Status: \(status)"
+        let running = isFilterRunning
+        let blocked = accessibilityPermissionBlocked
+
+        statusLabel?.stringValue = blocked ? "Needs Accessibility" : "Status: \(status)"
+        statusLabel?.textColor = blocked ? MatcherColors.warningText : MatcherColors.muted
+        statusStripView?.isWarning = blocked
+        accessibilitySettingsButton?.isHidden = !blocked
+        accessibilityRetryButton?.isHidden = !blocked
         startButton?.isEnabled = !running
         stopButton?.isEnabled = running
         restartButton?.isEnabled = running
-        statusItem?.button?.toolTip = "Deadpad: \(status)"
+        statusItem?.button?.toolTip = "Deadpad: \(blocked ? "Needs Accessibility" : status)"
     }
 
     private func showError(title: String, detail: String) {
@@ -1610,18 +1697,6 @@ final class DeadPadAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelega
         alert.runModal()
     }
 
-    private func showAccessibilityRequiredAlert() {
-        showError(
-            title: "Accessibility permission required",
-            detail: """
-            macOS blocked Deadpad's event tap, so the filter is not running yet.
-
-            In System Settings > Privacy & Security > Accessibility, enable Deadpad or its bundled deadpad helper, then open the DP popover again.
-
-            If it is already enabled, toggle it off and on once to refresh the permission.
-            """
-        )
-    }
 }
 
 @main
